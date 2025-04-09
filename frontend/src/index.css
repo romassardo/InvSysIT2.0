@@ -1,0 +1,143 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Nunito', 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+:root {
+  /* Paleta de colores según la guía de diseño */
+  --primary: #6200EA;
+  --primary-light: rgba(98, 0, 234, 0.1);
+  --secondary: #00C853;
+  --secondary-light: rgba(0, 200, 83, 0.1);
+  --accent: #FF5722;
+  --warning: #FFC107;
+  --warning-light: rgba(255, 193, 7, 0.1);
+  --danger: #F44336;
+  --danger-light: rgba(244, 67, 54, 0.1);
+  --background: #f8f9fc;
+  --card-bg: #ffffff;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #888888;
+  --border-color: rgba(0, 0, 0, 0.1);
+  
+  /* Espaciado */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* Bordes y radios */
+  --border-radius-sm: 8px;
+  --border-radius-md: 14px;
+  --border-radius-full: 9999px;
+  
+  /* Sombras */
+  --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 15px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+  --shadow-primary: 0 5px 15px rgba(98, 0, 234, 0.3);
+}
+
+/* Modo oscuro */
+[data-theme='dark'] {
+  --primary: #8A2BE2; /* Violeta más brillante para modo oscuro */
+  --primary-light: rgba(138, 43, 226, 0.2);
+  --secondary: #00E676;
+  --secondary-light: rgba(0, 230, 118, 0.2);
+  --accent: #FF7043;
+  --warning: #FFCA28;
+  --warning-light: rgba(255, 202, 40, 0.2);
+  --danger: #FF5252;
+  --danger-light: rgba(255, 82, 82, 0.2);
+  --background: #121212;
+  --card-bg: #1E1E1E;
+  --text-primary: #E0E0E0;
+  --text-secondary: #BBBBBB;
+  --text-muted: #888888;
+  --border-color: rgba(255, 255, 255, 0.1);
+  
+  /* Sombras para modo oscuro */
+  --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 15px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
+  --shadow-primary: 0 5px 15px rgba(138, 43, 226, 0.3);
+}
+
+/* Reset de botones para estilizar de forma personalizada */
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Nunito', 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Estilos generales para enlaces */
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Contenedor principal de la aplicación */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Evitar que las imágenes rompan el layout */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Utilidades para espaciado */
+.mt-1 { margin-top: var(--spacing-xs); }
+.mt-2 { margin-top: var(--spacing-sm); }
+.mt-3 { margin-top: var(--spacing-md); }
+.mt-4 { margin-top: var(--spacing-lg); }
+.mt-5 { margin-top: var(--spacing-xl); }
+
+.mb-1 { margin-bottom: var(--spacing-xs); }
+.mb-2 { margin-bottom: var(--spacing-sm); }
+.mb-3 { margin-bottom: var(--spacing-md); }
+.mb-4 { margin-bottom: var(--spacing-lg); }
+.mb-5 { margin-bottom: var(--spacing-xl); }
+
+/* Utilidades para texto */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-muted { color: var(--text-muted); }
+.text-success { color: var(--secondary); }
+.text-warning { color: var(--warning); }
+.text-danger { color: var(--danger); }
+.text-primary { color: var(--primary); }
+
+/* Utilidades para flexbox */
+.d-flex { display: flex; }
+.flex-column { flex-direction: column; }
+.justify-between { justify-content: space-between; }
+.align-center { align-items: center; }
+.flex-grow-1 { flex-grow: 1; }
+.flex-wrap { flex-wrap: wrap; }
