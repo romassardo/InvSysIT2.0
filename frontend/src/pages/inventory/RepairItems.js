@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -253,14 +253,64 @@ const PaginationButtons = styled.div`
   gap: var(--spacing-xs);
 `;
 
+const Notification = styled.div`
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: ${props => props.type === 'success' ? '#28a745' : props.type === 'error' ? '#dc3545' : props.type === 'info' ? '#17a2b8' : '#ffc107'};
+  color: ${props => props.type === 'warning' ? '#212529' : 'white'};
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out forwards;
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  .close {
+    margin-left: var(--spacing-md);
+    cursor: pointer;
+    opacity: 0.8;
+    
+    &:hover {
+      opacity: 1;
+    }
+  }
+  
+  .undo {
+    margin-left: var(--spacing-md);
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 600;
+    
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+`;
+
 const RepairItems = () => {
+  const navigate = useNavigate();
   const [repairItems, setRepairItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
+  const [lastAction, setLastAction] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
     category: '',
-    provider: '',
-    duration: ''
+    provider: ''
   });
   const [pagination, setPagination] = useState({
     page: 1,
@@ -283,7 +333,7 @@ const RepairItems = () => {
         problemDetails: 'El usuario reporta que el problema comenzó después de una caída leve.',
         sentDate: '2025-02-10T14:20:30Z',
         estimatedReturnDate: '2025-02-25T00:00:00Z',
-        status: 'En proceso',
+        status: 'En Proceso',
         provider: 'Servicio Técnico Dell',
         providerReference: 'REP-2025-0123',
         inWarranty: true,
@@ -306,7 +356,7 @@ const RepairItems = () => {
         problemDetails: 'La batería muestra un estado de salud del 65% según diagnóstico.',
         sentDate: '2025-01-20T11:15:45Z',
         estimatedReturnDate: '2025-02-05T00:00:00Z',
-        status: 'Esperando repuesto',
+        status: 'En Proceso',
         provider: 'iService',
         providerReference: 'ISV-2025-456',
         inWarranty: false,
@@ -329,7 +379,7 @@ const RepairItems = () => {
         problemDetails: 'Se probó con diferentes cables y fuentes sin éxito.',
         sentDate: '2025-02-18T09:30:15Z',
         estimatedReturnDate: '2025-03-10T00:00:00Z',
-        status: 'Diagnóstico',
+        status: 'En Proceso',
         provider: 'Servicio Técnico LG',
         providerReference: 'LG-25-789',
         inWarranty: true,
@@ -352,7 +402,7 @@ const RepairItems = () => {
         problemDetails: 'La impresora muestra mensaje de error en pantalla y no imprime.',
         sentDate: '2025-01-05T13:45:20Z',
         estimatedReturnDate: '2025-01-20T00:00:00Z',
-        status: 'Reparado',
+        status: 'En Proceso',
         provider: 'Servicio Técnico HP',
         providerReference: 'HP-25-112',
         inWarranty: false,
@@ -375,7 +425,7 @@ const RepairItems = () => {
         problemDetails: 'El equipo se apaga después de 10-15 minutos de uso intensivo.',
         sentDate: '2025-02-05T10:00:00Z',
         estimatedReturnDate: '2025-02-20T00:00:00Z',
-        status: 'Sin reparación',
+        status: 'En Proceso',
         provider: 'TecnoService',
         providerReference: 'TS-2025-789',
         inWarranty: false,
@@ -433,20 +483,92 @@ const RepairItems = () => {
   
   // Obtener estilo según estado
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'En proceso':
-        return <Badge variant="warning">{status}</Badge>;
-      case 'Diagnóstico':
-        return <Badge variant="info">{status}</Badge>;
-      case 'Esperando repuesto':
-        return <Badge variant="danger">{status}</Badge>;
-      case 'Reparado':
-        return <Badge variant="success">{status}</Badge>;
-      case 'Sin reparación':
-        return <Badge variant="danger">{status}</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
+    // Simplificado a un solo estado
+    return <Badge variant="warning">{status}</Badge>;
+  };
+  
+  // Función para mostrar notificaciones
+  const showNotification = useCallback((message, type = 'success', undoAction = null) => {
+    setNotification({ message, type, undoAction });
+    
+    // Auto-cerrar notificación después de 5 segundos si no hay opción de deshacer
+    if (!undoAction) {
+      setTimeout(() => {
+        setNotification(null);
+      }, 5000);
     }
+  }, []);
+  
+  // Función para cerrar notificación
+  const closeNotification = () => {
+    setNotification(null);
+    setLastAction(null);
+  };
+  
+  // Función para deshacer la última acción
+  const undoLastAction = () => {
+    if (lastAction) {
+      if (lastAction.type === 'return') {
+        // Restaurar el elemento eliminado
+        setRepairItems(prev => [...prev, lastAction.item]);
+        showNotification('Se ha deshecho la acción: Retorno al stock', 'info');
+      } else if (lastAction.type === 'discharge') {
+        // Restaurar el elemento eliminado
+        setRepairItems(prev => [...prev, lastAction.item]);
+        showNotification('Se ha deshecho la acción: Baja de activo', 'info');
+      }
+      setLastAction(null);
+    }
+  };
+  
+  // Función para manejar el retorno del activo al stock
+  const handleReturnToStock = (assetId) => {
+    // Encontrar el elemento antes de eliminarlo para poder restaurarlo
+    const itemToRemove = repairItems.find(item => item.id === assetId);
+    
+    // En una implementación real, se llamaría a la API para actualizar el estado
+    console.log(`Retornando activo ${assetId} al inventario`);
+    
+    // Simulamos la actualización del listado
+    setRepairItems(prev => prev.filter(item => item.id !== assetId));
+    
+    // Guardar la acción para poder deshacerla
+    setLastAction({
+      type: 'return',
+      item: itemToRemove
+    });
+    
+    // Mostrar mensaje con opción de deshacer
+    showNotification(
+      `Activo ${itemToRemove.assetName} retornado al inventario`, 
+      'success', 
+      true
+    );
+  };
+  
+  // Función para procesar la baja de un activo
+  const handleProcessDischarge = (assetId) => {
+    // Encontrar el elemento antes de eliminarlo para poder restaurarlo
+    const itemToRemove = repairItems.find(item => item.id === assetId);
+    
+    // En una implementación real, se llamaría a la API para dar de baja el activo
+    console.log(`Procesando baja del activo ${assetId}`);
+    
+    // Simulamos la actualización del listado
+    setRepairItems(prev => prev.filter(item => item.id !== assetId));
+    
+    // Guardar la acción para poder deshacerla
+    setLastAction({
+      type: 'discharge',
+      item: itemToRemove
+    });
+    
+    // Mostrar mensaje con opción de deshacer
+    showNotification(
+      `Activo ${itemToRemove.assetName} procesado para baja`, 
+      'error', 
+      true
+    );
   };
   
   // Manejar paginación
@@ -474,7 +596,11 @@ const RepairItems = () => {
           <Button variant="outline" icon="file-text" style={{ marginRight: 'var(--spacing-sm)' }}>
             Exportar
           </Button>
-          <Button variant="primary" icon="plus">
+          <Button 
+            variant="primary" 
+            icon="plus"
+            onClick={() => navigate('/inventory/repair/new')}
+          >
             Enviar a Reparación
           </Button>
         </div>
@@ -516,18 +642,7 @@ const RepairItems = () => {
           <option value="TecnoService">TecnoService</option>
         </FilterSelect>
         
-        <FilterSelect 
-          name="status" 
-          value={filters.status}
-          onChange={handleFilterChange}
-        >
-          <option value="">Todos los Estados</option>
-          <option value="En proceso">En proceso</option>
-          <option value="Diagnóstico">Diagnóstico</option>
-          <option value="Esperando repuesto">Esperando repuesto</option>
-          <option value="Reparado">Reparado</option>
-          <option value="Sin reparación">Sin reparación</option>
-        </FilterSelect>
+
       </FilterBar>
       
       {loading ? (
@@ -547,6 +662,7 @@ const RepairItems = () => {
               variant="primary" 
               icon="plus" 
               style={{ marginTop: 'var(--spacing-md)' }}
+              onClick={() => navigate('/inventory/repair/new')}
             >
               Enviar un Activo a Reparación
             </Button>
@@ -664,33 +780,25 @@ const RepairItems = () => {
                     <FeatherIcon icon="clock" size={16} />
                   </Button>
                   
-                  <Button 
-                    variant="icon" 
-                    title="Actualizar Estado"
-                    onClick={() => {/* Acción para actualizar estado */}}
-                  >
-                    <FeatherIcon icon="refresh-cw" size={16} />
-                  </Button>
-                  
-                  {item.status === 'Reparado' && (
+                  <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                     <Button 
                       variant="primary"
                       size="small"
                       icon="check-circle"
+                      onClick={() => handleReturnToStock(item.id)}
                     >
                       Marcar como Recibido
                     </Button>
-                  )}
-                  
-                  {item.status === 'Sin reparación' && (
+                    
                     <Button 
                       variant="danger"
                       size="small"
                       icon="x-circle"
+                      onClick={() => handleProcessDischarge(item.id)}
                     >
                       Procesar Baja
                     </Button>
-                  )}
+                  </div>
                 </RepairActions>
               </RepairFooter>
             </RepairCard>
@@ -724,6 +832,24 @@ const RepairItems = () => {
             </PaginationButtons>
           </PaginationContainer>
         </>
+      )}
+      {/* Mostrar notificación si existe */}
+      {notification && (
+        <Notification type={notification.type}>
+          <FeatherIcon 
+            icon={notification.type === 'success' ? 'check-circle' : notification.type === 'error' ? 'alert-circle' : 'alert-triangle'} 
+            size={20} 
+          />
+          <span>{notification.message}</span>
+          
+          {notification.undoAction && lastAction && (
+            <span className="undo" onClick={undoLastAction}>Deshacer</span>
+          )}
+          
+          <span className="close" onClick={closeNotification}>
+            <FeatherIcon icon="x" size={16} />
+          </span>
+        </Notification>
       )}
     </div>
   );

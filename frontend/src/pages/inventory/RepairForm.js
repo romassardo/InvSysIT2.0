@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -149,6 +150,9 @@ const RepairForm = () => {
   const [asset, setAsset] = useState(null);
   const [providers, setProviders] = useState([]);
   
+  // Usar el contexto de notificaciones
+  const { showNotification } = useNotification();
+  
   const initialValues = {
     assetId: id || '',
     problem: '',
@@ -216,13 +220,46 @@ const RepairForm = () => {
     priority: Yup.string().required('La prioridad es obligatoria')
   });
   
+  // Función para deshacer el envío a reparación
+  const undoRepairSubmission = (data) => {
+    if (!data) return;
+    
+    // En una implementación real, aquí se realizaría la llamada a la API
+    // para cancelar el envío a reparación que acabamos de hacer
+    console.log('Cancelando envío a reparación:', data);
+    
+    // Mostrar notificación informativa
+    showNotification(
+      `Envío a reparación cancelado: ${data.assetName}`,
+      'info'
+    );
+  };
+  
   // Enviar formulario
   const handleSubmit = (values, { setSubmitting }) => {
     console.log('Valores del formulario:', values);
     
+    // Obtener nombre del activo para la notificación
+    const assetName = asset ? asset.name : 'Activo #' + values.assetId;
+    
     // En una implementación real, aquí enviaríamos los datos a la API
     setTimeout(() => {
       setSubmitting(false);
+      
+      // Datos del envío a reparación para potencialmente deshacer
+      const submittedData = {
+        ...values,
+        id: 'repair-' + Date.now(), // Simulando un ID generado por el servidor
+        assetName: assetName
+      };
+      
+      // Mostrar notificación con opción de deshacer
+      showNotification(
+        `${assetName} enviado a reparación con ${values.provider}`,
+        'success',
+        undoRepairSubmission,
+        submittedData
+      );
       
       // Redirigir a la página de activos en reparación
       navigate('/inventory/in-repair');

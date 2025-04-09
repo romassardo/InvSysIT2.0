@@ -7,6 +7,7 @@ import Icon from '../../components/ui/Icon';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -185,6 +186,10 @@ const InventoryEntryForm = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showProductResults, setShowProductResults] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [lastSubmittedData, setLastSubmittedData] = useState(null);
+  
+  // Usar el contexto de notificaciones
+  const { showNotification } = useNotification();
   
   // Valores iniciales del formulario
   const initialValues = {
@@ -350,16 +355,48 @@ const InventoryEntryForm = () => {
     })
   });
   
+  // Función para deshacer la última entrada de inventario
+  const undoEntrySubmission = (data) => {
+    if (!data) return;
+    
+    // En una implementación real, aquí se realizaría la llamada a la API
+    // para eliminar la entrada que acabamos de crear
+    console.log('Eliminando entrada de inventario:', data);
+    
+    // Mostrar notificación informativa
+    showNotification(
+      `Entrada de inventario revertida: ${data.quantity} ${data.productName}`,
+      'info'
+    );
+  };
+  
   // Enviar formulario
   const handleSubmit = (values, { setSubmitting }) => {
     console.log('Valores del formulario:', values);
+    
+    // Guardar el producto seleccionado para la notificación
+    const productName = selectedProduct ? selectedProduct.name : 'producto';
     
     // En una implementación real, aquí enviaríamos los datos a la API
     setTimeout(() => {
       setSubmitting(false);
       
-      // Mostrar un mensaje de éxito y redireccionar
-      alert('Entrada de inventario registrada correctamente');
+      // Guardar los datos enviados para poder deshacer la acción si es necesario
+      const submittedData = {
+        ...values,
+        id: 'inventory-entry-' + Date.now(), // Simulando un ID generado por el servidor
+        productName: productName
+      };
+      
+      // Mostrar notificación con opción de deshacer
+      showNotification(
+        `Entrada registrada: ${values.quantity} ${productName}`,
+        'success',
+        undoEntrySubmission,
+        submittedData
+      );
+      
+      // Redireccionar
       navigate('/inventory');
     }, 1000);
   };

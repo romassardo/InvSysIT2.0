@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import styled from 'styled-components';
 import { useAuth } from './context/AuthContext';
 import { useTheme } from './context/ThemeContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 // Layouts
 import MainLayout from './components/layouts/MainLayout';
@@ -68,7 +69,8 @@ function App() {
   
   return (
     <Router>
-      <AppContainer className={`theme-${theme}`}>
+      <NotificationProvider>
+        <AppContainer className={`theme-${theme}`}>
         <Routes>
           {/* Rutas públicas */}
           <Route path="/login" element={
@@ -249,7 +251,8 @@ function App() {
           {/* Redirección por defecto al dashboard */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AppContainer>
+        </AppContainer>
+      </NotificationProvider>
     </Router>
   );
 }

@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -160,6 +161,9 @@ const AssignForm = () => {
   const [areas, setAreas] = useState([]);
   const [locations, setLocations] = useState([]);
   
+  // Usar el contexto de notificaciones
+  const { showNotification } = useNotification();
+  
   const initialValues = {
     assetId: id || '',
     assigneeType: 'employee',
@@ -248,13 +252,57 @@ const AssignForm = () => {
     termsAccepted: Yup.boolean().oneOf([true], 'Debe aceptar los términos de asignación')
   });
   
+  // Función para deshacer la asignación de un activo
+  const undoAssignment = (data) => {
+    if (!data) return;
+    
+    // En una implementación real, aquí se realizaría la llamada a la API
+    // para cancelar la asignación que acabamos de hacer
+    console.log('Cancelando asignación de activo:', data);
+    
+    // Mostrar notificación informativa
+    showNotification(
+      `Asignación cancelada: ${data.assetName}`,
+      'info'
+    );
+  };
+  
   // Enviar formulario
   const handleSubmit = (values, { setSubmitting }) => {
     console.log('Valores del formulario:', values);
     
+    // Obtener nombre del activo para la notificación
+    const assetName = asset ? asset.name : 'Activo #' + values.assetId;
+    
+    // Obtener nombre del asignado (empleado o área)
+    let assigneeName = '';
+    if (values.assigneeType === 'employee') {
+      const employee = employees.find(e => e.id.toString() === values.employeeId);
+      assigneeName = employee ? employee.name : 'Empleado #' + values.employeeId;
+    } else {
+      const area = areas.find(a => a.id.toString() === values.areaId);
+      assigneeName = area ? area.name : 'Área #' + values.areaId;
+    }
+    
     // En una implementación real, aquí enviaríamos los datos a la API
     setTimeout(() => {
       setSubmitting(false);
+      
+      // Datos de la asignación para potencialmente deshacer
+      const submittedData = {
+        ...values,
+        id: 'assignment-' + Date.now(), // Simulando un ID generado por el servidor
+        assetName: assetName,
+        assigneeName: assigneeName
+      };
+      
+      // Mostrar notificación con opción de deshacer
+      showNotification(
+        `${assetName} asignado a ${assigneeName}`,
+        'success',
+        undoAssignment,
+        submittedData
+      );
       
       // Redirigir a la página de activos asignados
       navigate('/inventory/assigned');
