@@ -236,12 +236,101 @@ const NoResultsMessage = styled.div`
   font-size: 0.9rem;
 `;
 
+// Estilos para el panel de notificaciones
+const NotificationsPanel = styled.div`
+  position: absolute;
+  top: 55px;
+  right: var(--spacing-lg);
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  width: 350px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 100;
+`;
+
+const NotificationHeader = styled.div`
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  
+  button {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+`;
+
+const NotificationItem = styled.div`
+  padding: var(--spacing-md);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+  ${props => !props.read && `
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background-color: var(--${props.type === 'warning' ? 'warning' : props.type === 'success' ? 'success' : 'primary'});
+    }
+  `}
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  h4 {
+    font-size: 0.95rem;
+    margin: 0 0 var(--spacing-xs) 0;
+    color: var(--text-primary);
+  }
+  
+  p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+  
+  .time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: var(--spacing-xs);
+  }
+`;
+
 const Header = ({ user }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(3);
   const searchRef = useRef(null);
+  const notificationsRef = useRef(null);
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   
@@ -324,6 +413,9 @@ const Header = ({ user }) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowResults(false);
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
+        setShowNotifications(false);
+      }
     };
     
     document.addEventListener('mousedown', handleClickOutside);
@@ -334,6 +426,62 @@ const Header = ({ user }) => {
   
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown);
+    setShowNotifications(false);
+  };
+  
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+    setShowDropdown(false);
+  };
+  
+  // Notificaciones de ejemplo
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: 'Notebook Dell asignada',
+      message: 'Se ha asignado una notebook a Juan Pérez',
+      time: '10 minutos',
+      read: false,
+      type: 'info'
+    },
+    {
+      id: 2,
+      title: 'Stock bajo',
+      message: 'Toners HP 85A están por debajo del stock mínimo',
+      time: '1 hora',
+      read: false,
+      type: 'warning'
+    },
+    {
+      id: 3,
+      title: 'Reparación completada',
+      message: 'La reparación de la impresora HP LaserJet ha sido completada',
+      time: '3 horas',
+      read: false,
+      type: 'success'
+    }
+  ]);
+  
+  // Función para marcar todas las notificaciones como leídas
+  const markAllAsRead = () => {
+    const updatedNotifications = notifications.map(notification => ({
+      ...notification,
+      read: true
+    }));
+    setNotifications(updatedNotifications);
+    setNotificationCount(0);
+  };
+  
+  // Función para marcar una notificación como leída
+  const markAsRead = (id) => {
+    const updatedNotifications = notifications.map(notification =>
+      notification.id === id ? { ...notification, read: true } : notification
+    );
+    setNotifications(updatedNotifications);
+    
+    // Actualizar el contador de notificaciones
+    const unreadCount = updatedNotifications.filter(n => !n.read).length;
+    setNotificationCount(unreadCount);
   };
   
   const getInitials = (name) => {
@@ -402,10 +550,52 @@ const Header = ({ user }) => {
       </SearchBar>
       
       <HeaderActions>
-        <ActionButton title="Notificaciones">
-          <FeatherIcon icon="bell" size={20} />
-          <NotificationBadge>3</NotificationBadge>
-        </ActionButton>
+        <div ref={notificationsRef} style={{ position: 'relative' }}>
+          <ActionButton 
+            title="Notificaciones" 
+            onClick={toggleNotifications}
+          >
+            <FeatherIcon icon="bell" size={20} />
+            {notificationCount > 0 && (
+              <NotificationBadge>{notificationCount}</NotificationBadge>
+            )}
+          </ActionButton>
+          
+          {showNotifications && (
+            <NotificationsPanel>
+              <NotificationHeader>
+                <h3>Notificaciones</h3>
+                <button onClick={markAllAsRead}>Marcar todas como leídas</button>
+              </NotificationHeader>
+              
+              {notifications.filter(notification => !notification.read).length > 0 ? (
+                notifications
+                  .filter(notification => !notification.read)
+                  .map(notification => (
+                    <NotificationItem 
+                      key={notification.id} 
+                      read={notification.read}
+                      type={notification.type}
+                      onClick={() => markAsRead(notification.id)}
+                    >
+                      <h4>{notification.title}</h4>
+                      <p>{notification.message}</p>
+                      <div className="time">Hace {notification.time}</div>
+                    </NotificationItem>
+                  ))
+              ) : (
+                <div style={{ 
+                  padding: 'var(--spacing-md)', 
+                  color: 'var(--text-muted)',
+                  textAlign: 'center',
+                  fontSize: '0.9rem'
+                }}>
+                  No tienes notificaciones nuevas
+                </div>
+              )}
+            </NotificationsPanel>
+          )}
+        </div>
         
         <ActionButton title="Cambiar tema" onClick={toggleTheme}>
           <FeatherIcon icon={theme === 'light' ? 'moon' : 'sun'} size={20} />

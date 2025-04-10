@@ -166,6 +166,7 @@ const AssignForm = () => {
   
   const initialValues = {
     assetId: id || '',
+    serialNumber: '',
     assigneeType: 'employee',
     employeeId: '',
     areaId: '',
@@ -174,8 +175,16 @@ const AssignForm = () => {
     expectedReturnDate: '',
     purpose: '',
     notes: '',
-    termsAccepted: false
+    termsAccepted: false,
+    // Información adicional específica para notebooks y celulares
+    additionalInfo: {}
   };
+  
+  // Referencia a todos los activos disponibles para asignación (notebooks y celulares)
+  const [availableAssets, setAvailableAssets] = useState([]);
+
+  // Estado para almacenar los números de serie seleccionados
+  const [selectedSerial, setSelectedSerial] = useState('');
   
   // Simular carga de datos
   useEffect(() => {
@@ -187,6 +196,43 @@ const AssignForm = () => {
       { id: 4, name: 'Ana Martínez', department: 'Recursos Humanos', email: 'ana.martinez@empresa.com' },
       { id: 5, name: 'Pedro Sánchez', department: 'Ventas', email: 'pedro.sanchez@empresa.com' }
     ];
+    
+    // Activos asignables (solo notebooks y celulares)
+    const mockAssets = [
+      { 
+        id: 101, 
+        name: 'Notebook Dell Latitude 7400', 
+        category: 'Computadoras', 
+        subcategory: 'Notebooks', 
+        icon: 'laptop', 
+        requiresSerial: true,
+        currentStock: 3,
+        serialNumbers: ['DL7400-123456', 'DL7400-123457', 'DL7400-123458'],
+        requiresAdditionalInfo: true,
+        additionalInfoFields: [
+          { name: 'encryptionPass', label: 'encryption pass', type: 'password' }
+        ]
+      },
+      { 
+        id: 102, 
+        name: 'iPhone 13 Pro', 
+        category: 'Celulares', 
+        subcategory: '', 
+        icon: 'smartphone', 
+        requiresSerial: true,
+        currentStock: 2,
+        serialNumbers: ['IP13-456789', 'IP13-456790'],
+        requiresAdditionalInfo: true,
+        additionalInfoFields: [
+          { name: 'phoneNumber', label: 'Número de Teléfono', type: 'text' },
+          { name: 'gmailAccount', label: 'Cuenta Gmail', type: 'email' },
+          { name: 'gmailPassword', label: 'Contraseña Gmail', type: 'password' },
+          { name: 'whatsappVerification', label: 'Código de Verificación WhatsApp', type: 'text' }
+        ]
+      }
+    ];
+    
+    setAvailableAssets(mockAssets);
     
     const mockAreas = [
       { id: 1, name: 'Sala de Reuniones', location: 'Oficina Central' },
@@ -232,14 +278,17 @@ const AssignForm = () => {
   // Validación del formulario
   const validationSchema = Yup.object().shape({
     assetId: Yup.string().required('El activo es obligatorio'),
+    serialNumber: Yup.string().required('Debe seleccionar un número de serie'),
     assigneeType: Yup.string().required('Tipo de asignación es obligatorio'),
     employeeId: Yup.string().when('assigneeType', {
       is: 'employee',
-      then: Yup.string().required('El empleado es obligatorio')
+      then: () => Yup.string().required('El empleado es obligatorio'),
+      otherwise: () => Yup.string()
     }),
     areaId: Yup.string().when('assigneeType', {
       is: 'area',
-      then: Yup.string().required('El área es obligatoria')
+      then: () => Yup.string().required('El área es obligatoria'),
+      otherwise: () => Yup.string()
     }),
     location: Yup.string().required('La ubicación es obligatoria'),
     assignmentDate: Yup.date().required('La fecha de asignación es obligatoria'),
@@ -249,7 +298,23 @@ const AssignForm = () => {
     ),
     purpose: Yup.string().required('El propósito de uso es obligatorio'),
     notes: Yup.string(),
-    termsAccepted: Yup.boolean().oneOf([true], 'Debe aceptar los términos de asignación')
+    termsAccepted: Yup.boolean().oneOf([true], 'Debe aceptar los términos de asignación'),
+    // Validación dinámica para información adicional
+    additionalInfo: Yup.object().when(['assetId'], (assetId, schema) => {
+      const asset = assetId ? availableAssets.find(a => a.id.toString() === assetId[0]) : null;
+      
+      if (asset && asset.requiresAdditionalInfo && asset.additionalInfoFields) {
+        const shapeObject = {};
+        
+        asset.additionalInfoFields.forEach(field => {
+          shapeObject[field.name] = Yup.string().required(`${field.label} es obligatorio`);
+        });
+        
+        return schema.shape(shapeObject);
+      }
+      
+      return schema;
+    })
   });
   
   // Función para deshacer la asignación de un activo
@@ -267,12 +332,39 @@ const AssignForm = () => {
     );
   };
   
+  // Manejar cambio de selección de activo
+  const handleAssetChange = (event, setFieldValue) => {
+    const selectedAssetId = event.target.value;
+    setFieldValue('assetId', selectedAssetId);
+    setFieldValue('serialNumber', ''); // Resetear el número de serie
+    setFieldValue('additionalInfo', {}); // Resetear información adicional
+    
+    // Si hay un ID, cargar datos del activo
+    if (selectedAssetId) {
+      const selectedAsset = availableAssets.find(a => a.id.toString() === selectedAssetId);
+      if (selectedAsset) {
+        setAsset(selectedAsset);
+      }
+    } else {
+      setAsset(null);
+    }
+  };
+
+  // Manejar selección de número de serie
+  const handleSerialSelect = (serial, setFieldValue) => {
+    setSelectedSerial(serial);
+    setFieldValue('serialNumber', serial);
+  };
+
   // Enviar formulario
   const handleSubmit = (values, { setSubmitting }) => {
     console.log('Valores del formulario:', values);
     
+    // Obtener el activo seleccionado
+    const selectedAsset = availableAssets.find(a => a.id.toString() === values.assetId);
+    
     // Obtener nombre del activo para la notificación
-    const assetName = asset ? asset.name : 'Activo #' + values.assetId;
+    const assetName = selectedAsset ? selectedAsset.name : 'Activo #' + values.assetId;
     
     // Obtener nombre del asignado (empleado o área)
     let assigneeName = '';
@@ -288,17 +380,35 @@ const AssignForm = () => {
     setTimeout(() => {
       setSubmitting(false);
       
+      // NUEVO: Actualizar el stock (eliminar el número de serie usado)
+      if (selectedAsset && selectedAsset.requiresSerial) {
+        // Simulamos la actualización del stock reduciendo los números de serie disponibles
+        const updatedAssets = availableAssets.map(asset => {
+          if (asset.id === selectedAsset.id) {
+            return {
+              ...asset,
+              currentStock: asset.currentStock - 1,
+              serialNumbers: asset.serialNumbers.filter(sn => sn !== values.serialNumber)
+            };
+          }
+          return asset;
+        });
+        
+        setAvailableAssets(updatedAssets);
+      }
+      
       // Datos de la asignación para potencialmente deshacer
       const submittedData = {
         ...values,
         id: 'assignment-' + Date.now(), // Simulando un ID generado por el servidor
         assetName: assetName,
-        assigneeName: assigneeName
+        assigneeName: assigneeName,
+        serialNumber: values.serialNumber
       };
       
       // Mostrar notificación con opción de deshacer
       showNotification(
-        `${assetName} asignado a ${assigneeName}`,
+        `${assetName} (S/N: ${values.serialNumber}) asignado a ${assigneeName}`,
         'success',
         undoAssignment,
         submittedData
@@ -395,15 +505,90 @@ const AssignForm = () => {
                     <h3>Seleccionar Activo</h3>
                     <FormGroup>
                       <label htmlFor="assetId">Activo*</label>
-                      <Field as="select" id="assetId" name="assetId">
+                      <Field 
+                        as="select" 
+                        id="assetId" 
+                        name="assetId"
+                        onChange={(e) => handleAssetChange(e, setFieldValue)}
+                      >
                         <option value="">Seleccionar Activo</option>
-                        {/* En una implementación real, cargamos los activos de la API */}
-                        <option value="101">Notebook Dell Latitude 7400</option>
-                        <option value="102">iPhone 13 Pro</option>
-                        <option value="103">Monitor LG 27"</option>
+                        {availableAssets
+                          .filter(assetItem => 
+                            assetItem.category === 'Computadoras' && assetItem.subcategory === 'Notebooks' || 
+                            assetItem.category === 'Celulares'
+                          )
+                          .map(assetItem => (
+                            <option key={assetItem.id} value={assetItem.id} disabled={assetItem.currentStock === 0}>
+                              {assetItem.name} ({assetItem.currentStock} disponibles)
+                            </option>
+                          ))}
                       </Field>
                       <ErrorMessage name="assetId" component={ErrorText} />
                     </FormGroup>
+                  </FormSection>
+                )}
+                
+                {asset && asset.requiresSerial && (
+                  <FormSection>
+                    <h3>Seleccionar Número de Serie</h3>
+                    <FormGroup>
+                      <label>Números de Serie Disponibles</label>
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                        gap: 'var(--spacing-sm)',
+                        marginTop: 'var(--spacing-xs)'
+                      }}>
+                        {asset.serialNumbers.map(serial => (
+                          <div 
+                            key={serial}
+                            style={{
+                              border: '1px solid rgba(0, 0, 0, 0.1)',
+                              borderColor: values.serialNumber === serial ? 'var(--primary)' : 'rgba(0, 0, 0, 0.1)',
+                              backgroundColor: values.serialNumber === serial ? 'var(--primary-light)' : 'transparent',
+                              borderRadius: 'var(--border-radius-sm)',
+                              padding: 'var(--spacing-sm)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s'
+                            }}
+                            onClick={() => handleSerialSelect(serial, setFieldValue)}
+                          >
+                            {serial}
+                            {values.serialNumber === serial && (
+                              <FeatherIcon icon="check" size={14} style={{ marginLeft: '5px' }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <ErrorMessage name="serialNumber" component={ErrorText} />
+                    </FormGroup>
+                  </FormSection>
+                )}
+                
+                {asset && asset.requiresAdditionalInfo && asset.additionalInfoFields && (
+                  <FormSection>
+                    <h3>Información Técnica</h3>
+                    <div style={{ 
+                      padding: 'var(--spacing-md)', 
+                      backgroundColor: 'rgba(0, 0, 0, 0.02)', 
+                      borderRadius: 'var(--border-radius-sm)',
+                      marginBottom: 'var(--spacing-md)'
+                    }}>
+                      {asset.additionalInfoFields.map(field => (
+                        <FormGroup key={field.name}>
+                          <label htmlFor={`additionalInfo.${field.name}`}>{field.label}</label>
+                          <Field
+                            name={`additionalInfo.${field.name}`}
+                            id={`additionalInfo.${field.name}`}
+                            type={field.type}
+                          />
+                          <ErrorMessage name={`additionalInfo.${field.name}`} component={ErrorText} />
+                        </FormGroup>
+                      ))}
+                    </div>
                   </FormSection>
                 )}
                 
@@ -514,11 +699,6 @@ const AssignForm = () => {
                       <ErrorMessage name="assignmentDate" component={ErrorText} />
                     </FormGroup>
                     
-                    <FormGroup>
-                      <label htmlFor="expectedReturnDate">Fecha Prevista de Devolución</label>
-                      <Field type="date" id="expectedReturnDate" name="expectedReturnDate" />
-                      <ErrorMessage name="expectedReturnDate" component={ErrorText} />
-                    </FormGroup>
                     
                     <FormGroup>
                       <label htmlFor="purpose">Propósito de Uso*</label>
@@ -547,22 +727,7 @@ const AssignForm = () => {
                   </FormGroup>
                 </FormSection>
                 
-                <FormSection>
-                  <FormGroup>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'flex-start',
-                      gap: 'var(--spacing-xs)'
-                    }}>
-                      <Field type="checkbox" id="termsAccepted" name="termsAccepted" style={{ marginTop: '5px' }} />
-                      <label htmlFor="termsAccepted" style={{ fontWeight: 'normal' }}>
-                        Confirmo que el usuario/área receptora ha sido informado/a de las condiciones de uso y responsabilidad sobre el activo asignado, incluyendo el compromiso de mantenerlo en buen estado y reportar cualquier problema o incidente.
-                      </label>
-                    </div>
-                    <ErrorMessage name="termsAccepted" component={ErrorText} />
-                  </FormGroup>
-                </FormSection>
-                
+
                 <FormActions>
                   <Button 
                     type="button" 

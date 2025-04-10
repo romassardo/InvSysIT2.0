@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
 import Button from '../components/ui/Button';
@@ -110,6 +110,8 @@ const BadgeContainer = styled.div`
 `;
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  
   const [statsData, setStatsData] = useState({
     totalAssets: 0,
     assignedAssets: 0,
@@ -393,20 +395,36 @@ const Dashboard = () => {
           display: 'flex', 
           gap: 'var(--spacing-md)', 
           flexWrap: 'wrap' 
-        }}>
-          <Button icon="PlusCircle" variant="primary">
+        }} data-component-name="Dashboard">
+          <Button 
+            icon="PlusCircle" 
+            variant="primary"
+            onClick={() => navigate('/inventory/entry/new')}
+          >
             Nueva Entrada
           </Button>
           
-          <Button icon="UserPlus" variant="outline">
+          <Button 
+            icon="UserPlus" 
+            variant="outline"
+            onClick={() => navigate('/inventory/assign/new')}
+          >
             Asignar Activo
           </Button>
           
-          <Button icon="tool" variant="outline">
+          <Button 
+            icon="tool" 
+            variant="outline"
+            onClick={() => navigate('/inventory/repair/new')}
+          >
             Registrar Reparación
           </Button>
           
-          <Button icon="file-text" variant="outline">
+          <Button 
+            icon="file-text" 
+            variant="outline"
+            onClick={() => navigate('/reports')}
+          >
             Generar Reporte
           </Button>
         </div>

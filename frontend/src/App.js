@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useNotification } from './context/NotificationContext';
 import styled from 'styled-components';
 import { useAuth } from './context/AuthContext';
 import { useTheme } from './context/ThemeContext';
@@ -40,6 +41,33 @@ const ProtectedRoute = ({ children }) => {
   }
   
   return isAuthenticated ? children : <Navigate to="/login" />;
+};
+
+// Componente de ruta protegida solo para administradores
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, currentUser, loading } = useAuth();
+  const { showNotification } = useNotification();
+  const location = window.location;
+  
+  useEffect(() => {
+    // Si el usuario está autenticado pero no es administrador, mostrar notificación
+    if (!loading && isAuthenticated && currentUser?.role !== 'admin') {
+      showNotification(
+        'No tienes permisos de administrador para acceder a esta sección', 
+        'error'
+      );
+      window.location.href = '/';
+    }
+  }, [loading, isAuthenticated, currentUser, showNotification]);
+  
+  if (loading) {
+    return <div>Cargando...</div>;
+  }
+  
+  // Verificar si el usuario está autenticado y es administrador
+  return (isAuthenticated && currentUser?.role === 'admin') ? 
+    children : 
+    null; // Retornamos null porque la redirección se maneja en el useEffect
 };
 
 const AppContainer = styled.div`
@@ -129,19 +157,19 @@ function App() {
           } />
           
           <Route path="/inventory/asset/new" element={
-            <ProtectedRoute>
+            <AdminRoute>
               <MainLayout>
                 <AssetForm />
               </MainLayout>
-            </ProtectedRoute>
+            </AdminRoute>
           } />
           
           <Route path="/inventory/asset/edit/:id" element={
-            <ProtectedRoute>
+            <AdminRoute>
               <MainLayout>
                 <AssetForm />
               </MainLayout>
-            </ProtectedRoute>
+            </AdminRoute>
           } />
           
           <Route path="/inventory/asset/:id" element={
@@ -201,35 +229,35 @@ function App() {
           } />
           
           <Route path="/inventory/consumable/new" element={
-            <ProtectedRoute>
+            <AdminRoute>
               <MainLayout>
                 <ConsumableForm />
               </MainLayout>
-            </ProtectedRoute>
+            </AdminRoute>
           } />
           
           <Route path="/inventory/consumable/edit/:id" element={
-            <ProtectedRoute>
+            <AdminRoute>
               <MainLayout>
                 <ConsumableForm />
               </MainLayout>
-            </ProtectedRoute>
+            </AdminRoute>
           } />
           
           <Route path="/admin/users" element={
-            <ProtectedRoute>
+            <AdminRoute>
               <MainLayout>
                 <UserManagement />
               </MainLayout>
-            </ProtectedRoute>
+            </AdminRoute>
           } />
           
           <Route path="/admin/categories" element={
-            <ProtectedRoute>
+            <AdminRoute>
               <MainLayout>
                 <CategoryManagement />
               </MainLayout>
-            </ProtectedRoute>
+            </AdminRoute>
           } />
           
           <Route path="/reports" element={

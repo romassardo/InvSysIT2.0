@@ -4,6 +4,83 @@ import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 
+// Modal para edición de reportes
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+  }
+`;
+
+const ModalForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+`;
+
+const FormGroup = styled.div`
+  margin-bottom: var(--spacing-md);
+  
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.95rem;
+  }
+  
+  input, select, textarea {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+  }
+  
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+`;
+
 const PageHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -125,6 +202,24 @@ const Reports = () => {
   const [activeTab, setActiveTab] = useState('predefined');
   const [selectedReport, setSelectedReport] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [reportToEdit, setReportToEdit] = useState(null);
+  const [newReport, setNewReport] = useState({
+    title: '',
+    description: '',
+    formats: ['pdf', 'excel'],
+    icon: 'file-text',
+    dataSource: 'inventory',
+    selectedFields: [],
+    filters: {
+      category: '',
+      status: '',
+      location: '',
+      dateFrom: '',
+      dateTo: ''
+    }
+  });
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -215,17 +310,155 @@ const Reports = () => {
   const generateReport = (format) => {
     setLoading(true);
     
-    // En una implementación real, aquí haríamos una llamada a la API
+    // Normalmente aquí haríamos una llamada a la API para generar el reporte
     console.log(`Generando reporte ${selectedReport.title} en formato ${format}`);
     console.log('Filtros:', filters);
     
-    // Simulamos la generación del reporte
+    // Simulamos un pequeño retraso para mostrar el loading
     setTimeout(() => {
       setLoading(false);
       
-      // Simulamos una descarga
-      alert(`Reporte ${selectedReport.title} generado en formato ${format}`);
-    }, 2000);
+      // Generar contenido de ejemplo para el reporte
+      let content = '';
+      
+      // Generamos datos ficticios según el tipo de reporte
+      if (selectedReport.title === 'Inventario General') {
+        content = 'ID,Nombre,Categoría,Estado,Ubicación\n';
+        
+        // Aplicamos filtros si existen
+        let filteredData = [
+          { id: '001', name: 'Notebook Dell XPS 13', category: 'Computadoras', status: 'Activo', location: 'Oficina Central' },
+          { id: '002', name: 'iPhone 13 Pro', category: 'Celulares', status: 'Asignado', location: 'Juan Pérez' },
+          { id: '003', name: 'Monitor Samsung 24"', category: 'Periféricos', status: 'Activo', location: 'Oficina Central' },
+          { id: '004', name: 'Teclado Logitech', category: 'Periféricos', status: 'Activo', location: 'Oficina Central' },
+          { id: '005', name: 'Mouse Microsoft', category: 'Periféricos', status: 'En Reparación', location: 'Proveedor A' },
+        ];
+        
+        // Aplicar filtros
+        if (filters.category) {
+          const categoryMap = {
+            'computers': 'Computadoras',
+            'phones': 'Celulares',
+            'peripherals': 'Periféricos',
+            'network': 'Equipos de Red'
+          };
+          filteredData = filteredData.filter(item => item.category === categoryMap[filters.category]);
+        }
+        
+        if (filters.status) {
+          const statusMap = {
+            'active': 'Activo',
+            'assigned': 'Asignado',
+            'maintenance': 'En Reparación',
+            'retired': 'Retirado'
+          };
+          filteredData = filteredData.filter(item => item.status === statusMap[filters.status]);
+        }
+        
+        if (filters.location) {
+          const locationMap = {
+            'central': 'Oficina Central',
+            'branch1': 'Sucursal 1',
+            'branch2': 'Sucursal 2',
+            'branch3': 'Sucursal 3'
+          };
+          filteredData = filteredData.filter(item => item.location === locationMap[filters.location]);
+        }
+        
+        // Generar contenido filtrado
+        filteredData.forEach(item => {
+          content += `${item.id},${item.name},${item.category},${item.status},${item.location}\n`;
+        });
+        
+        // Añadir un mensaje sobre los filtros aplicados
+        if (filters.category || filters.status || filters.location || filters.dateFrom || filters.dateTo) {
+          let filterText = '\n\nFiltros aplicados:\n';
+          if (filters.category) filterText += `Categoría: ${filters.category}\n`;
+          if (filters.status) filterText += `Estado: ${filters.status}\n`;
+          if (filters.location) filterText += `Ubicación: ${filters.location}\n`;
+          if (filters.dateFrom) filterText += `Desde: ${filters.dateFrom}\n`;
+          if (filters.dateTo) filterText += `Hasta: ${filters.dateTo}\n`;
+          content += filterText;
+        }
+        
+      } else if (selectedReport.title === 'Activos por Categoría') {
+        content = 'Categoría,Subcategoría,Cantidad,Porcentaje\n';
+        content += 'Computadoras,Notebooks,45,32.1%\n';
+        content += 'Computadoras,Desktops,20,14.3%\n';
+        content += 'Celulares,,30,21.4%\n';
+        content += 'Periféricos,Teclados,15,10.7%\n';
+        content += 'Periféricos,Mouse,10,7.1%\n';
+        content += 'Periféricos,Monitores,20,14.3%\n';
+        
+        // Añadir un mensaje sobre los filtros aplicados
+        if (filters.status || filters.dateFrom || filters.dateTo) {
+          let filterText = '\n\nFiltros aplicados:\n';
+          if (filters.status) filterText += `Estado: ${filters.status}\n`;
+          if (filters.dateFrom) filterText += `Desde: ${filters.dateFrom}\n`;
+          if (filters.dateTo) filterText += `Hasta: ${filters.dateTo}\n`;
+          content += filterText;
+        }
+      } else if (selectedReport.title === 'Asignaciones Activas') {
+        content = 'ID,Usuario,Equipo,Departamento,Fecha Asignación\n';
+        content += '001,Juan Pérez,iPhone 13 Pro,Ventas,2023-05-15\n';
+        content += '002,María García,Notebook Dell XPS,Marketing,2023-06-22\n';
+        content += '003,Carlos López,iPhone 12,IT,2023-04-10\n';
+        
+        // Añadir un mensaje sobre los filtros aplicados
+        if (filters.department || filters.dateFrom || filters.dateTo) {
+          let filterText = '\n\nFiltros aplicados:\n';
+          if (filters.department) filterText += `Departamento: ${filters.department}\n`;
+          if (filters.dateFrom) filterText += `Desde: ${filters.dateFrom}\n`;
+          if (filters.dateTo) filterText += `Hasta: ${filters.dateTo}\n`;
+          content += filterText;
+        }
+      } else {
+        // Generar contenido genérico para otros informes
+        content = `Reporte: ${selectedReport.title}\n`;
+        content += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
+        content += 'Este es un reporte de ejemplo generado para demostración.\n';
+        content += 'En una implementación real, contendría datos reales del sistema.';
+      }
+      
+      // Crear el objeto de archivo según el formato
+      let fileContent = content;
+      let mimeType = 'text/plain';
+      let fileExtension = 'txt';
+      
+      if (format === 'excel') {
+        // Para Excel, usamos CSV pero con extension .xlsx
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        fileExtension = 'xlsx';
+      } else if (format === 'csv') {
+        mimeType = 'text/csv';
+        fileExtension = 'csv';
+      } else if (format === 'pdf') {
+        // Para PDF, simulamos un contenido simple
+        // En una implementación real se usaría una biblioteca como jsPDF
+        mimeType = 'application/pdf';
+        fileExtension = 'pdf';
+        // Aviso sobre formato PDF (requiere biblioteca adicional)
+        alert('Para generar PDFs reales se requiere implementar una biblioteca como jsPDF. Este es un archivo de demostración.');
+      }
+      
+      // Crear un blob con el contenido
+      const blob = new Blob([fileContent], { type: mimeType });
+      
+      // Crear URL del objeto y forzar descarga
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedReport.title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpiar
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+      
+      // Mostrar notificación
+      alert(`Reporte ${selectedReport.title} generado en formato ${format.toUpperCase()}`);
+    }, 1500);
   };
   
   // Renderizar el contenido según la tab activa
@@ -233,48 +466,197 @@ const Reports = () => {
     switch (activeTab) {
       case 'predefined':
         return (
-          <ReportsGrid>
-            {predefinedReports.map(report => (
-              <ReportCard 
-                key={report.id} 
-                onClick={() => handleReportSelect(report)}
-                style={{
-                  border: selectedReport && selectedReport.id === report.id 
-                    ? '2px solid var(--primary)' 
-                    : '1px solid rgba(0, 0, 0, 0.1)'
-                }}
-              >
-                <ReportIcon>
-                  <FeatherIcon icon={report.icon} size={24} />
-                </ReportIcon>
-                <ReportTitle>{report.title}</ReportTitle>
-                <ReportDescription>{report.description}</ReportDescription>
-                <ReportActions>
-                  {report.formats.map(format => (
+          <>
+            <ReportsGrid>
+              {predefinedReports.map(report => (
+                <ReportCard 
+                  key={report.id} 
+                  onClick={() => handleReportSelect(report)}
+                  style={{
+                    border: selectedReport && selectedReport.id === report.id 
+                      ? '2px solid var(--primary)' 
+                      : '1px solid rgba(0, 0, 0, 0.1)'
+                  }}
+                >
+                  <ReportIcon>
+                    <FeatherIcon icon={report.icon} size={24} />
+                  </ReportIcon>
+                  <ReportTitle>{report.title}</ReportTitle>
+                  <ReportDescription>{report.description}</ReportDescription>
+                  <ReportActions>
+                    {report.formats.map(format => (
+                      <Button 
+                        key={format} 
+                        variant="outline" 
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReportSelect(report);
+                        }}
+                      >
+                        {format.toUpperCase()}
+                      </Button>
+                    ))}
+                  </ReportActions>
+                </ReportCard>
+              ))}
+            </ReportsGrid>
+            
+            {/* Panel de filtros para reporte seleccionado */}
+            {selectedReport && (
+              <Card style={{ marginTop: 'var(--spacing-md)' }}>
+                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Configuración de "{selectedReport.title}"</h3>
+                
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
+                  gap: 'var(--spacing-md)',
+                  marginBottom: 'var(--spacing-lg)'
+                }}>
+                  {/* Filtros dependiendo del tipo de reporte */}
+                  {selectedReport.id === 'inventory' && (
+                    <>
+                      <FormGroup>
+                        <label htmlFor="predefCategory">Categoría</label>
+                        <select
+                          id="predefCategory"
+                          name="category"
+                          value={filters.category}
+                          onChange={handleFilterChange}
+                        >
+                          <option value="">Todas</option>
+                          <option value="computers">Computadoras</option>
+                          <option value="phones">Celulares</option>
+                          <option value="peripherals">Periféricos</option>
+                          <option value="network">Equipos de Red</option>
+                        </select>
+                      </FormGroup>
+                      
+                      <FormGroup>
+                        <label htmlFor="predefStatus">Estado</label>
+                        <select
+                          id="predefStatus"
+                          name="status"
+                          value={filters.status}
+                          onChange={handleFilterChange}
+                        >
+                          <option value="">Todos</option>
+                          <option value="active">Activo</option>
+                          <option value="assigned">Asignado</option>
+                          <option value="maintenance">En Mantenimiento</option>
+                          <option value="retired">Retirado</option>
+                        </select>
+                      </FormGroup>
+                      
+                      <FormGroup>
+                        <label htmlFor="predefLocation">Ubicación</label>
+                        <select
+                          id="predefLocation"
+                          name="location"
+                          value={filters.location}
+                          onChange={handleFilterChange}
+                        >
+                          <option value="">Todas</option>
+                          <option value="central">Oficina Central</option>
+                          <option value="branch1">Sucursal 1</option>
+                          <option value="branch2">Sucursal 2</option>
+                          <option value="branch3">Sucursal 3</option>
+                        </select>
+                      </FormGroup>
+                    </>
+                  )}
+                  
+                  {selectedReport.id === 'assets-by-category' && (
+                    <>
+                      <FormGroup>
+                        <label htmlFor="predefStatus">Estado</label>
+                        <select
+                          id="predefStatus"
+                          name="status"
+                          value={filters.status}
+                          onChange={handleFilterChange}
+                        >
+                          <option value="">Todos</option>
+                          <option value="active">Activo</option>
+                          <option value="assigned">Asignado</option>
+                          <option value="maintenance">En Mantenimiento</option>
+                          <option value="retired">Retirado</option>
+                        </select>
+                      </FormGroup>
+                    </>
+                  )}
+                  
+                  {selectedReport.id === 'assignments' && (
+                    <>
+                      <FormGroup>
+                        <label htmlFor="predefDepartment">Departamento</label>
+                        <select
+                          id="predefDepartment"
+                          name="department"
+                          value={filters.department}
+                          onChange={handleFilterChange}
+                        >
+                          <option value="">Todos</option>
+                          <option value="it">IT</option>
+                          <option value="sales">Ventas</option>
+                          <option value="marketing">Marketing</option>
+                          <option value="finance">Finanzas</option>
+                          <option value="hr">Recursos Humanos</option>
+                        </select>
+                      </FormGroup>
+                    </>
+                  )}
+                  
+                  {/* Filtros comunes a todos los reportes */}
+                  <FormGroup>
+                    <label htmlFor="predefDateFrom">Fecha Desde</label>
+                    <input
+                      type="date"
+                      id="predefDateFrom"
+                      name="dateFrom"
+                      value={filters.dateFrom}
+                      onChange={handleFilterChange}
+                    />
+                  </FormGroup>
+                  
+                  <FormGroup>
+                    <label htmlFor="predefDateTo">Fecha Hasta</label>
+                    <input
+                      type="date"
+                      id="predefDateTo"
+                      name="dateTo"
+                      value={filters.dateTo}
+                      onChange={handleFilterChange}
+                    />
+                  </FormGroup>
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--spacing-md)' }}>
+                  {selectedReport.formats.map(format => (
                     <Button 
                       key={format} 
-                      variant="outline" 
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReportSelect(report);
-                        generateReport(format);
-                      }}
+                      variant="primary"
+                      icon={format === 'pdf' ? 'file-text' : format === 'excel' ? 'file' : 'file'}
+                      onClick={() => generateReport(format)}
                     >
-                      {format.toUpperCase()}
+                      Generar {format.toUpperCase()}
                     </Button>
                   ))}
-                </ReportActions>
-              </ReportCard>
-            ))}
-          </ReportsGrid>
+                </div>
+              </Card>
+            )}
+          </>
         );
       
       case 'custom':
         return (
           <>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
-              <Button variant="primary" icon="plus">
+              <Button 
+                variant="primary" 
+                icon="plus"
+                onClick={() => setShowCreateModal(true)}
+              >
                 Crear Reporte Personalizado
               </Button>
             </div>
@@ -296,6 +678,7 @@ const Reports = () => {
                     variant="primary" 
                     icon="plus" 
                     style={{ marginTop: 'var(--spacing-md)' }}
+                    onClick={() => setShowCreateModal(true)}
                   >
                     Crear Reporte
                   </Button>
@@ -324,7 +707,8 @@ const Reports = () => {
                         title="Editar reporte"
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Acción de editar
+                          setReportToEdit(report);
+                          setShowEditModal(true);
                         }}
                       >
                         <FeatherIcon icon="edit-2" size={16} />
@@ -366,6 +750,177 @@ const Reports = () => {
       default:
         return null;
     }
+  };
+  
+  // Manejar cambios en el formulario de edición
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setReportToEdit(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Guardar cambios del reporte editado
+  const handleSaveEdit = (e) => {
+    e.preventDefault();
+    
+    // Actualizar el reporte en la lista
+    const updatedReports = customReports.map(report => 
+      report.id === reportToEdit.id ? reportToEdit : report
+    );
+    
+    setCustomReports(updatedReports);
+    setShowEditModal(false);
+    setReportToEdit(null);
+    
+    // Mostrar mensaje de éxito
+    alert('Reporte actualizado correctamente');
+  };
+  
+  // Manejar cambios en el formulario de creación
+  const handleCreateFormChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name.startsWith('filters.')) {
+      const filterName = name.split('.')[1];
+      setNewReport(prev => ({
+        ...prev,
+        filters: {
+          ...prev.filters,
+          [filterName]: value
+        }
+      }));
+    } else {
+      setNewReport(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+  
+  // Manejar selección de campos
+  const handleFieldSelect = (field) => {
+    setNewReport(prev => {
+      if (prev.selectedFields.includes(field)) {
+        return {
+          ...prev,
+          selectedFields: prev.selectedFields.filter(f => f !== field)
+        };
+      } else {
+        return {
+          ...prev,
+          selectedFields: [...prev.selectedFields, field]
+        };
+      }
+    });
+  };
+  
+  // Obtener los campos disponibles según la fuente de datos seleccionada
+  const getAvailableFields = (dataSource) => {
+    switch(dataSource) {
+      case 'inventory':
+        return [
+          { id: 'id', label: 'ID' },
+          { id: 'name', label: 'Nombre' },
+          { id: 'category', label: 'Categoría' },
+          { id: 'subcategory', label: 'Subcategoría' },
+          { id: 'brand', label: 'Marca' },
+          { id: 'model', label: 'Modelo' },
+          { id: 'serial', label: 'Nº Serie' },
+          { id: 'status', label: 'Estado' },
+          { id: 'location', label: 'Ubicación' },
+          { id: 'purchaseDate', label: 'Fecha Compra' },
+          { id: 'purchasePrice', label: 'Precio Compra' },
+          { id: 'warranty', label: 'Garantía' },
+          { id: 'lastMaintenance', label: 'Último Mantenimiento' },
+          { id: 'notes', label: 'Notas' }
+        ];
+      case 'assignments':
+        return [
+          { id: 'id', label: 'ID' },
+          { id: 'assetId', label: 'ID Equipo' },
+          { id: 'assetName', label: 'Nombre Equipo' },
+          { id: 'userId', label: 'ID Usuario' },
+          { id: 'userName', label: 'Nombre Usuario' },
+          { id: 'assignDate', label: 'Fecha Asignación' },
+          { id: 'returnDate', label: 'Fecha Devolución' },
+          { id: 'department', label: 'Departamento' },
+          { id: 'encryptionPass', label: 'Clave Encriptación' },
+          { id: 'status', label: 'Estado' }
+        ];
+      case 'movements':
+        return [
+          { id: 'id', label: 'ID' },
+          { id: 'assetId', label: 'ID Equipo' },
+          { id: 'assetName', label: 'Nombre Equipo' },
+          { id: 'moveDate', label: 'Fecha Movimiento' },
+          { id: 'fromLocation', label: 'Desde' },
+          { id: 'toLocation', label: 'Hacia' },
+          { id: 'movedBy', label: 'Responsable' },
+          { id: 'reason', label: 'Motivo' }
+        ];
+      case 'maintenance':
+        return [
+          { id: 'id', label: 'ID' },
+          { id: 'assetId', label: 'ID Equipo' },
+          { id: 'assetName', label: 'Nombre Equipo' },
+          { id: 'startDate', label: 'Fecha Inicio' },
+          { id: 'endDate', label: 'Fecha Fin' },
+          { id: 'maintenanceType', label: 'Tipo Mantenimiento' },
+          { id: 'provider', label: 'Proveedor' },
+          { id: 'cost', label: 'Costo' },
+          { id: 'status', label: 'Estado' },
+          { id: 'notes', label: 'Notas' }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  // Guardar el nuevo reporte personalizado
+  const handleSaveNewReport = (e) => {
+    e.preventDefault();
+    
+    // Validar que se hayan seleccionado campos
+    if (newReport.selectedFields.length === 0) {
+      alert('Debes seleccionar al menos un campo para el reporte');
+      return;
+    }
+    
+    // Crear un nuevo ID (en un entorno real esto vendría del backend)
+    const newId = Date.now();
+    
+    // Crear el nuevo reporte
+    const reportToAdd = {
+      ...newReport,
+      id: newId,
+      description: newReport.description || `Reporte personalizado creado el ${new Date().toLocaleDateString()}`
+    };
+    
+    // Añadir el nuevo reporte a la lista
+    setCustomReports([...customReports, reportToAdd]);
+    
+    // Cerrar el modal y reiniciar el formulario
+    setShowCreateModal(false);
+    setNewReport({
+      title: '',
+      description: '',
+      formats: ['pdf', 'excel'],
+      icon: 'file-text',
+      dataSource: 'inventory',
+      selectedFields: [],
+      filters: {
+        category: '',
+        status: '',
+        location: '',
+        dateFrom: '',
+        dateTo: ''
+      }
+    });
+    
+    // Mostrar mensaje de éxito
+    alert('Reporte personalizado creado correctamente');
   };
   
   return (
@@ -505,6 +1060,360 @@ const Reports = () => {
             </div>
           </div>
         </Card>
+      )}
+      
+      {/* Modal de Creación de Reporte */}
+      {showCreateModal && (
+        <ModalOverlay onClick={() => setShowCreateModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <h2>Crear Reporte Personalizado</h2>
+              <Button 
+                variant="icon" 
+                onClick={() => setShowCreateModal(false)}
+              >
+                <FeatherIcon icon="x" size={20} />
+              </Button>
+            </ModalHeader>
+            
+            <ModalForm onSubmit={handleSaveNewReport}>
+              <FormGroup>
+                <label htmlFor="createTitle">Título del Reporte*</label>
+                <input
+                  type="text"
+                  id="createTitle"
+                  name="title"
+                  value={newReport.title}
+                  onChange={handleCreateFormChange}
+                  required
+                  placeholder="Ej: Equipos por Marca"
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <label htmlFor="createDescription">Descripción</label>
+                <textarea
+                  id="createDescription"
+                  name="description"
+                  value={newReport.description}
+                  onChange={handleCreateFormChange}
+                  rows="3"
+                  placeholder="Descripción opcional del reporte"
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <label htmlFor="dataSource">Origen de Datos*</label>
+                <select
+                  id="dataSource"
+                  name="dataSource"
+                  value={newReport.dataSource}
+                  onChange={handleCreateFormChange}
+                  required
+                >
+                  <option value="inventory">Inventario</option>
+                  <option value="assignments">Asignaciones</option>
+                  <option value="movements">Movimientos</option>
+                  <option value="maintenance">Mantenimientos</option>
+                </select>
+              </FormGroup>
+              
+              <FormGroup>
+                <label>Campos a incluir*</label>
+                <div style={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: 'var(--spacing-xs)', 
+                  border: '1px solid rgba(0,0,0,0.1)', 
+                  borderRadius: 'var(--border-radius-sm)',
+                  padding: 'var(--spacing-sm)'
+                }}>
+                  {getAvailableFields(newReport.dataSource).map(field => (
+                    <div 
+                      key={field.id}
+                      onClick={() => handleFieldSelect(field.id)}
+                      style={{
+                        padding: 'var(--spacing-xs) var(--spacing-sm)',
+                        borderRadius: 'var(--border-radius-sm)',
+                        border: '1px solid rgba(0,0,0,0.1)',
+                        background: newReport.selectedFields.includes(field.id) ? 'var(--primary-light)' : 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--spacing-xs)'
+                      }}
+                    >
+                      {newReport.selectedFields.includes(field.id) && (
+                        <FeatherIcon icon="check" size={14} color="var(--primary)" />
+                      )}
+                      {field.label}
+                    </div>
+                  ))}
+                </div>
+                {newReport.selectedFields.length === 0 && (
+                  <div style={{ color: 'var(--error)', fontSize: '0.85rem', marginTop: 'var(--spacing-xs)' }}>
+                    Selecciona al menos un campo para el reporte
+                  </div>
+                )}
+              </FormGroup>
+              
+              <FormGroup>
+                <label>Filtros (Opcional)</label>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '1fr 1fr', 
+                  gap: 'var(--spacing-sm)',
+                  border: '1px solid rgba(0,0,0,0.1)', 
+                  borderRadius: 'var(--border-radius-sm)',
+                  padding: 'var(--spacing-sm)'
+                }}>
+                  {newReport.dataSource === 'inventory' && (
+                    <>
+                      <div>
+                        <label htmlFor="filterCategory" style={{ fontWeight: 'normal', fontSize: '0.9rem' }}>Categoría</label>
+                        <select
+                          id="filterCategory"
+                          name="filters.category"
+                          value={newReport.filters.category}
+                          onChange={handleCreateFormChange}
+                          style={{ marginTop: 'var(--spacing-xs)' }}
+                        >
+                          <option value="">Todas</option>
+                          <option value="computers">Computadoras</option>
+                          <option value="phones">Celulares</option>
+                          <option value="peripherals">Periféricos</option>
+                          <option value="network">Equipos de Red</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="filterStatus" style={{ fontWeight: 'normal', fontSize: '0.9rem' }}>Estado</label>
+                        <select
+                          id="filterStatus"
+                          name="filters.status"
+                          value={newReport.filters.status}
+                          onChange={handleCreateFormChange}
+                          style={{ marginTop: 'var(--spacing-xs)' }}
+                        >
+                          <option value="">Todos</option>
+                          <option value="active">Activo</option>
+                          <option value="assigned">Asignado</option>
+                          <option value="maintenance">En Mantenimiento</option>
+                          <option value="retired">Retirado</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="filterLocation" style={{ fontWeight: 'normal', fontSize: '0.9rem' }}>Ubicación</label>
+                        <select
+                          id="filterLocation"
+                          name="filters.location"
+                          value={newReport.filters.location}
+                          onChange={handleCreateFormChange}
+                          style={{ marginTop: 'var(--spacing-xs)' }}
+                        >
+                          <option value="">Todas</option>
+                          <option value="central">Oficina Central</option>
+                          <option value="branch1">Sucursal 1</option>
+                          <option value="branch2">Sucursal 2</option>
+                          <option value="branch3">Sucursal 3</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                  
+                  <div>
+                    <label htmlFor="filterDateFrom" style={{ fontWeight: 'normal', fontSize: '0.9rem' }}>Fecha Desde</label>
+                    <input
+                      type="date"
+                      id="filterDateFrom"
+                      name="filters.dateFrom"
+                      value={newReport.filters.dateFrom}
+                      onChange={handleCreateFormChange}
+                      style={{ marginTop: 'var(--spacing-xs)' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="filterDateTo" style={{ fontWeight: 'normal', fontSize: '0.9rem' }}>Fecha Hasta</label>
+                    <input
+                      type="date"
+                      id="filterDateTo"
+                      name="filters.dateTo"
+                      value={newReport.filters.dateTo}
+                      onChange={handleCreateFormChange}
+                      style={{ marginTop: 'var(--spacing-xs)' }}
+                    />
+                  </div>
+                </div>
+              </FormGroup>
+              
+              <FormGroup>
+                <label>Formatos de Exportación</label>
+                <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                    <input
+                      type="checkbox"
+                      checked={newReport.formats.includes('pdf')}
+                      onChange={(e) => {
+                        const formats = e.target.checked
+                          ? [...newReport.formats, 'pdf'].filter((v, i, a) => a.indexOf(v) === i)
+                          : newReport.formats.filter(f => f !== 'pdf');
+                        setNewReport({ ...newReport, formats });
+                      }}
+                    />
+                    PDF
+                  </label>
+                  
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                    <input
+                      type="checkbox"
+                      checked={newReport.formats.includes('excel')}
+                      onChange={(e) => {
+                        const formats = e.target.checked
+                          ? [...newReport.formats, 'excel'].filter((v, i, a) => a.indexOf(v) === i)
+                          : newReport.formats.filter(f => f !== 'excel');
+                        setNewReport({ ...newReport, formats });
+                      }}
+                    />
+                    Excel
+                  </label>
+                  
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                    <input
+                      type="checkbox"
+                      checked={newReport.formats.includes('csv')}
+                      onChange={(e) => {
+                        const formats = e.target.checked
+                          ? [...newReport.formats, 'csv'].filter((v, i, a) => a.indexOf(v) === i)
+                          : newReport.formats.filter(f => f !== 'csv');
+                        setNewReport({ ...newReport, formats });
+                      }}
+                    />
+                    CSV
+                  </label>
+                </div>
+              </FormGroup>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => setShowCreateModal(false)}
+                >
+                  Cancelar
+                </Button>
+                
+                <Button type="submit" variant="primary">
+                  Crear Reporte
+                </Button>
+              </div>
+            </ModalForm>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+      
+      {/* Modal de Edición de Reporte */}
+      {showEditModal && reportToEdit && (
+        <ModalOverlay onClick={() => setShowEditModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <h2>Editar Reporte</h2>
+              <Button 
+                variant="icon" 
+                onClick={() => setShowEditModal(false)}
+              >
+                <FeatherIcon icon="x" size={20} />
+              </Button>
+            </ModalHeader>
+            
+            <ModalForm onSubmit={handleSaveEdit}>
+              <FormGroup>
+                <label htmlFor="title">Título del Reporte*</label>
+                <input
+                  type="text"
+                  id="title"
+                  name="title"
+                  value={reportToEdit.title}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <label htmlFor="description">Descripción</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={reportToEdit.description}
+                  onChange={handleEditFormChange}
+                  rows="3"
+                />
+              </FormGroup>
+              
+              <FormGroup>
+                <label>Formatos de Exportación</label>
+                <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                    <input
+                      type="checkbox"
+                      checked={reportToEdit.formats.includes('pdf')}
+                      onChange={(e) => {
+                        const formats = e.target.checked
+                          ? [...reportToEdit.formats, 'pdf'].filter((v, i, a) => a.indexOf(v) === i)
+                          : reportToEdit.formats.filter(f => f !== 'pdf');
+                        setReportToEdit({ ...reportToEdit, formats });
+                      }}
+                    />
+                    PDF
+                  </label>
+                  
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                    <input
+                      type="checkbox"
+                      checked={reportToEdit.formats.includes('excel')}
+                      onChange={(e) => {
+                        const formats = e.target.checked
+                          ? [...reportToEdit.formats, 'excel'].filter((v, i, a) => a.indexOf(v) === i)
+                          : reportToEdit.formats.filter(f => f !== 'excel');
+                        setReportToEdit({ ...reportToEdit, formats });
+                      }}
+                    />
+                    Excel
+                  </label>
+                  
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                    <input
+                      type="checkbox"
+                      checked={reportToEdit.formats.includes('csv')}
+                      onChange={(e) => {
+                        const formats = e.target.checked
+                          ? [...reportToEdit.formats, 'csv'].filter((v, i, a) => a.indexOf(v) === i)
+                          : reportToEdit.formats.filter(f => f !== 'csv');
+                        setReportToEdit({ ...reportToEdit, formats });
+                      }}
+                    />
+                    CSV
+                  </label>
+                </div>
+              </FormGroup>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancelar
+                </Button>
+                
+                <Button type="submit" variant="primary">
+                  Guardar Cambios
+                </Button>
+              </div>
+            </ModalForm>
+          </ModalContent>
+        </ModalOverlay>
       )}
     </div>
   );

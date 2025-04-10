@@ -192,16 +192,17 @@ const Profile = () => {
     department: 'IT',
     position: 'Jefe de Soporte',
     joinDate: '2022-01-15',
-    lastLogin: '2025-04-04 15:30'
+    lastLogin: '2025-04-04 15:30',
+    phone: '11-5555-5555' // Añadido valor por defecto para el teléfono
   };
   
   // Valores iniciales para los formularios
   const profileInitialValues = {
-    name: user.name,
-    email: user.email,
-    department: user.department,
-    position: user.position,
-    phone: '11-5555-5555'
+    name: user.name || '',
+    email: user.email || '',
+    department: user.department || '',
+    position: user.position || '',
+    phone: user.phone || ''
   };
   
   const passwordInitialValues = {
@@ -216,7 +217,7 @@ const Profile = () => {
     email: Yup.string().email('Correo electrónico inválido').required('El correo es obligatorio'),
     department: Yup.string().required('El departamento es obligatorio'),
     position: Yup.string().required('El cargo es obligatorio'),
-    phone: Yup.string()
+    phone: Yup.string().nullable()
   });
   
   // Validación del formulario de cambio de contraseña
@@ -339,13 +340,13 @@ const Profile = () => {
               <Form>
                 <FormGroup>
                   <label htmlFor="name">Nombre Completo</label>
-                  <Field type="text" id="name" name="name" />
+                  <Field type="text" id="name" name="name" placeholder="Nombre completo" />
                   <ErrorMessage name="name" component={ErrorText} />
                 </FormGroup>
                 
                 <FormGroup>
                   <label htmlFor="email">Correo Electrónico</label>
-                  <Field type="email" id="email" name="email" />
+                  <Field type="email" id="email" name="email" placeholder="correo@ejemplo.com" />
                   <ErrorMessage name="email" component={ErrorText} />
                 </FormGroup>
                 
@@ -364,13 +365,13 @@ const Profile = () => {
                 
                 <FormGroup>
                   <label htmlFor="position">Cargo</label>
-                  <Field type="text" id="position" name="position" />
+                  <Field type="text" id="position" name="position" placeholder="Tu cargo" />
                   <ErrorMessage name="position" component={ErrorText} />
                 </FormGroup>
                 
                 <FormGroup>
                   <label htmlFor="phone">Teléfono</label>
-                  <Field type="text" id="phone" name="phone" />
+                  <Field type="text" id="phone" name="phone" placeholder="Teléfono de contacto" />
                   <ErrorMessage name="phone" component={ErrorText} />
                 </FormGroup>
                 
@@ -406,14 +407,19 @@ const Profile = () => {
               // Evaluar la fortaleza de la contraseña cuando cambia
               const handlePasswordChange = (e) => {
                 handleChange(e);
-                setPasswordStrength(evaluatePasswordStrength(e.target.value));
+                setPasswordStrength(evaluatePasswordStrength(e.target.value || ''));
               };
               
               return (
                 <Form>
                   <FormGroup>
                     <label htmlFor="currentPassword">Contraseña Actual</label>
-                    <Field type="password" id="currentPassword" name="currentPassword" />
+                    <Field 
+                      type="password" 
+                      id="currentPassword" 
+                      name="currentPassword" 
+                      placeholder="Ingresa tu contraseña actual" 
+                    />
                     <ErrorMessage name="currentPassword" component={ErrorText} />
                   </FormGroup>
                   
@@ -424,6 +430,7 @@ const Profile = () => {
                       id="newPassword" 
                       name="newPassword" 
                       onChange={handlePasswordChange}
+                      placeholder="Ingresa tu nueva contraseña"
                     />
                     
                     <PasswordStrengthMeter>
@@ -445,7 +452,12 @@ const Profile = () => {
                   
                   <FormGroup>
                     <label htmlFor="confirmPassword">Confirmar Nueva Contraseña</label>
-                    <Field type="password" id="confirmPassword" name="confirmPassword" />
+                    <Field 
+                      type="password" 
+                      id="confirmPassword" 
+                      name="confirmPassword" 
+                      placeholder="Confirma tu nueva contraseña"
+                    />
                     <ErrorMessage name="confirmPassword" component={ErrorText} />
                   </FormGroup>
                   

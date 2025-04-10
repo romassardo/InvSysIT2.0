@@ -20,159 +20,14 @@ const PageTitle = styled.h1`
   font-weight: 800;
   color: var(--text-primary);
   margin: 0;
-`;
-
-const PageDescription = styled.p`
-  color: var(--text-muted);
-  margin-top: var(--spacing-xs);
-  font-size: 0.95rem;
-`;
-
-// Componentes de estilo para el formulario
-const FormContainer = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--spacing-lg);
-`;
-
-const Section = styled.section`
-  margin-bottom: var(--spacing-lg);
-`;
-
-const SectionTitle = styled.h3`
-  font-size: 1.1rem;
-  margin-bottom: var(--spacing-md);
-  color: var(--text-dark);
-  font-weight: 600;
-`;
-
-
-
-
-
-const FormLabel = styled.label`
-  display: block;
-  margin-bottom: var(--spacing-xs);
-  font-weight: 500;
-  color: var(--text-dark);
-`;
-
-const FormInput = styled(Field)`
-  width: 100%;
-  padding: var(--spacing-sm);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: var(--border-radius-sm);
-  font-size: 1rem;
-  
-  &:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
-  }
-`;
-
-const FormRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-md);
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-
-
-const SearchInput = styled.input`
-  width: 100%;
-  padding: var(--spacing-sm);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: var(--border-radius-sm);
-  font-size: 1rem;
-  
-  &:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
-  }
-`;
-
-const SearchResults = styled.div`
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background-color: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: var(--border-radius-sm);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  max-height: 300px;
-  overflow-y: auto;
-`;
-
-const SearchResultItem = styled.div`
-  padding: var(--spacing-sm);
-  cursor: pointer;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  
-  &:last-child {
-    border-bottom: none;
-  }
-  
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.03);
-  }
-`;
-
-const ItemIcon = styled.div`
-  margin-right: var(--spacing-sm);
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const ItemDetails = styled.div`
-  flex-grow: 1;
-`;
-
-const ItemName = styled.div`
-  font-weight: 500;
-`;
-
-const ItemCategory = styled.div`
-  font-size: 0.85rem;
-  color: var(--text-muted);
-`;
-
-const SerialNumbersGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-xs);
 `;
 
-const SerialNumberItem = styled.div`
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: var(--border-radius-sm);
-  padding: var(--spacing-sm);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  transition: all 0.2s;
-  
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.03);
-  }
-  
-  &.selected {
-    border-color: var(--primary);
-    background-color: var(--primary-light);
-  }
+const FormContainer = styled.div`
+  max-width: 800px;
+  margin: 0 auto;
 `;
 
 const FormGroup = styled.div`
@@ -237,6 +92,101 @@ const FormSection = styled.div`
     margin-bottom: var(--spacing-md);
     padding-bottom: var(--spacing-xs);
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+`;
+
+
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: var(--spacing-sm);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--border-radius-sm);
+  font-size: 1rem;
+  
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
+  }
+`;
+
+const SearchResults = styled.div`
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  border-radius: var(--border-radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+`;
+
+const SearchResultItem = styled.div`
+  padding: var(--spacing-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.05));
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background-color: var(--hover-bg, rgba(0, 0, 0, 0.03));
+  }
+`;
+
+const ItemIcon = styled.div`
+  margin-right: var(--spacing-sm);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ItemDetails = styled.div`
+  flex-grow: 1;
+`;
+
+const ItemName = styled.div`
+  font-weight: 600;
+  color: var(--text-primary, #000);
+`;
+
+const ItemCategory = styled.div`
+  font-size: 0.85rem;
+  color: var(--text-secondary, #555);
+`;
+
+const SerialNumbersGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+`;
+
+const SerialNumberItem = styled.div`
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+  
+  &.selected {
+    border-color: var(--primary);
+    background-color: var(--primary-light);
   }
 `;
 
@@ -375,7 +325,49 @@ const DestinationTypeOptions = styled.div`
     }
   }
 `;
+// Componentes estilizados faltantes
+const Section = styled.div`
+  margin-bottom: var(--spacing-lg);
+`;
 
+const SectionTitle = styled.h3`
+  font-size: 1.2rem;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+`;
+
+const FormLabel = styled.label`
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+  font-size: 0.95rem;
+`;
+
+const FormInput = styled.input`
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+  }
+`;
+
+const FormRow = styled.div`
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  
+  > * {
+    flex: 1;
+  }
+`;
 // Componente principal
 const InventoryOutForm = () => {
   const navigate = useNavigate();
@@ -518,6 +510,15 @@ const InventoryOutForm = () => {
     { id: 3, name: 'Obra Nueva Centro', status: 'En Progreso' }
   ];
   
+  // Estado para mostrar alerta cuando se busca notebook o celular
+  const [showRedirectAlert, setShowRedirectAlert] = useState(false);
+  
+  // Verificar si un ítem es notebook o celular
+  const isNotebookOrCellphone = (item) => {
+    return (item.category === 'Computadoras' && item.subcategory === 'Notebooks') || 
+           (item.category === 'Celulares');
+  };
+  
   // Manejar búsqueda de productos
   const handleItemSearch = (e, setFieldValue) => {
     const term = e.target.value;
@@ -526,6 +527,7 @@ const InventoryOutForm = () => {
     if (term.trim() === '') {
       setFilteredItems([]);
       setShowItemResults(false);
+      setShowRedirectAlert(false);
       return;
     }
     
@@ -536,8 +538,21 @@ const InventoryOutForm = () => {
       (item.subcategory && item.subcategory.toLowerCase().includes(term.toLowerCase()))
     );
     
+    // Verificar si hay notebooks o celulares en los resultados
+    const notebooksOrCellphones = filtered.filter(item => isNotebookOrCellphone(item));
+    
+    if (notebooksOrCellphones.length > 0) {
+      // Mostrar alerta de redirección
+      setShowRedirectAlert(true);
+    } else {
+      setShowRedirectAlert(false);
+    }
+    
+    // Filtrar notebooks y celulares de los resultados
+    const filteredNoNotebooksCell = filtered.filter(item => !isNotebookOrCellphone(item));
+    
     // Filtrar solo elementos con stock disponible
-    const itemsWithStock = filtered.filter(item => item.currentStock > 0);
+    const itemsWithStock = filteredNoNotebooksCell.filter(item => item.currentStock > 0);
     
     setFilteredItems(itemsWithStock);
     setShowItemResults(true);
@@ -565,11 +580,9 @@ const InventoryOutForm = () => {
     // Reiniciar información adicional si cambia el producto
     setFieldValue('additionalInfo', {});
     
-    // Establecer tipo de destino adecuado según el tipo de producto
-    if (item.isTrackable) {
-      setDestinationType('employee');
-      setFieldValue('destination.type', 'employee');
-    }
+    // Establecer tipo de destino por defecto a departamento
+    setDestinationType('department');
+    setFieldValue('destination.type', 'department');
   };
   
   // Limpiar selección de producto
@@ -600,14 +613,10 @@ const InventoryOutForm = () => {
   // Obtener el listado adecuado según el tipo de destino
   const getDestinationList = () => {
     switch (destinationType) {
-      case 'employee':
-        return employeesList;
       case 'department':
         return departmentsList;
       case 'branch':
         return branchesList;
-      case 'project':
-        return projectsList;
       default:
         return [];
     }
@@ -630,36 +639,37 @@ const InventoryOutForm = () => {
     }
   };
   
-  // Validación del formulario
+  // Validación del formulario - solo se activa cuando un producto es seleccionado
   const validationSchema = Yup.object().shape({
-    itemId: Yup.number().required('Debe seleccionar un producto del inventario'),
+    itemId: Yup.number().nullable(),
     quantity: Yup.number()
-      .required('La cantidad es obligatoria')
       .min(1, 'La cantidad debe ser al menos 1')
       .test(
         'max-stock', 
         'La cantidad no puede superar el stock disponible', 
         function(value) {
+          if (!this.parent.itemId) return true; // Skip validation if no item selected
           const item = inventoryItems.find(i => i.id === this.parent.itemId);
-          return !item || value <= item.currentStock;
+          return !item || !value || value <= item.currentStock;
         }
       ),
-    outputDate: Yup.date().required('La fecha de salida es obligatoria'),
+    outputDate: Yup.date().nullable(),
     serialNumbers: Yup.array().when(['itemId'], (itemId, schema) => {
-      const item = itemId ? inventoryItems.find(i => i.id === itemId[0]) : null;
+      if (!itemId || !itemId[0]) return schema; // Skip validation if no item selected
+      const item = inventoryItems.find(i => i.id === itemId[0]);
       return item && item.requiresSerial
-        ? schema
-            .min(1, 'Debe seleccionar al menos un número de serie')
+        ? schema.min(1, 'Debe seleccionar al menos un número de serie')
         : schema;
     }),
     destination: Yup.object().shape({
-      type: Yup.string().required('El tipo de destino es obligatorio'),
-      id: Yup.string().required('Debe seleccionar un destino'),
-      name: Yup.string().required('El nombre del destino es obligatorio')
+      type: Yup.string().nullable(),
+      id: Yup.string().nullable(),
+      name: Yup.string().nullable()
     }),
     // Validación dinámica para información adicional
     additionalInfo: Yup.object().when(['itemId'], (itemId, schema) => {
-      const item = itemId ? inventoryItems.find(i => i.id === itemId[0]) : null;
+      if (!itemId || !itemId[0]) return schema; // Skip validation if no item selected
+      const item = inventoryItems.find(i => i.id === itemId[0]);
       
       if (item && item.requiresAdditionalInfo && item.additionalInfoFields) {
         const shapeObject = {};
@@ -676,7 +686,35 @@ const InventoryOutForm = () => {
   });
   
   // Enviar formulario
-  const handleSubmit = (values, { setSubmitting }) => {
+  const handleSubmit = (values, { setSubmitting, setErrors }) => {
+    // Verificar que se haya seleccionado un producto
+    if (!values.itemId) {
+      setErrors({ itemId: 'Debe seleccionar un producto del inventario' });
+      setSubmitting(false);
+      return;
+    }
+    
+    // Verificar cantidad
+    if (!values.quantity || values.quantity < 1) {
+      setErrors({ quantity: 'La cantidad es obligatoria y debe ser al menos 1' });
+      setSubmitting(false);
+      return;
+    }
+    
+    // Verificar fecha
+    if (!values.outputDate) {
+      setErrors({ outputDate: 'La fecha de salida es obligatoria' });
+      setSubmitting(false);
+      return;
+    }
+    
+    // Verificar destino
+    if (!values.destination.id) {
+      setErrors({ 'destination.id': 'Debe seleccionar un destino' });
+      setSubmitting(false);
+      return;
+    }
+    
     console.log('Valores del formulario:', values);
     
     // En una implementación real, aquí enviaríamos los datos a la API
@@ -712,7 +750,10 @@ const InventoryOutForm = () => {
   return (
     <div>
       <PageHeader>
-        <PageTitle>Salida de Inventario</PageTitle>
+        <PageTitle>
+          <Icon name="LogOut" size={24} color="var(--primary)" />
+          Salida de Inventario
+        </PageTitle>
         <Button variant="secondary" onClick={() => navigate('/inventory')}>
           <Icon name="ArrowLeft" size={16} style={{ marginRight: 'var(--spacing-xs)' }} />
           Volver al Inventario
@@ -752,6 +793,31 @@ const InventoryOutForm = () => {
                             onClick={() => clearItemSelection(setFieldValue)} 
                             style={{ color: 'var(--text-muted)' }}
                           />
+                        </div>
+                      )}
+                      
+                      {/* Mensaje de alerta para redirigir a formulario de asignación */}
+                      {showRedirectAlert && (
+                        <div style={{ 
+                          backgroundColor: 'var(--warning-light)',
+                          borderLeft: '4px solid var(--warning)',
+                          padding: 'var(--spacing-md)',
+                          marginTop: 'var(--spacing-sm)',
+                          marginBottom: 'var(--spacing-sm)',
+                          borderRadius: '0 var(--border-radius-sm) var(--border-radius-sm) 0',
+                          fontSize: '0.9rem'
+                        }}>
+                          <strong>Importante:</strong> Los notebooks y celulares deben ser gestionados a través del 
+                          <a 
+                            href="/inventory/assign/new" 
+                            style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'underline', marginLeft: '5px' }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate('/inventory/assign/new');
+                            }}
+                          >
+                            formulario de asignación
+                          </a>.
                         </div>
                       )}
                       
@@ -798,36 +864,32 @@ const InventoryOutForm = () => {
                     </FormGroup>
                   </div>
                   
-                  {selectedItem && (
-                    <>
-                      <FormRow>
-                        <FormGroup>
-                          <FormLabel htmlFor="outputDate">Fecha de Salida</FormLabel>
-                          <FormInput
-                            id="outputDate"
-                            name="outputDate"
-                            type="date"
-                          />
-                          <FormikErrorMessage component="div" name="outputDate" className="error-text" />
-                        </FormGroup>
-                        
-                        {!selectedItem.requiresSerial && (
-                          <FormGroup>
-                            <FormLabel htmlFor="quantity">Cantidad</FormLabel>
-                            <FormInput
-                              id="quantity"
-                              name="quantity"
-                              type="number"
-                              min="1"
-                              max={selectedItem.currentStock}
-                            />
-                            <FormikErrorMessage component="div" name="quantity" className="error-text" />
-                          </FormGroup>
-                        )}
-                      </FormRow>
+                  <FormRow>
+                    <FormGroup>
+                      <FormLabel htmlFor="outputDate">Fecha de Salida</FormLabel>
+                      <FormInput
+                        id="outputDate"
+                        name="outputDate"
+                        type="date"
+                      />
+                      <FormikErrorMessage component="div" name="outputDate" className="error-text" />
+                    </FormGroup>
+                    
+                    <FormGroup>
+                      <FormLabel htmlFor="quantity">Cantidad</FormLabel>
+                      <FormInput
+                        id="quantity"
+                        name="quantity"
+                        type="number"
+                        min="1"
+                        max={selectedItem ? selectedItem.currentStock : 999}
+                      />
+                      <FormikErrorMessage component="div" name="quantity" className="error-text" />
+                    </FormGroup>
+                  </FormRow>
                       
-                      {/* Selección de números de serie si el producto lo requiere */}
-                      {selectedItem.requiresSerial && selectedItem.serialNumbers && selectedItem.serialNumbers.length > 0 && (
+                      {/* Esta sección solo se muestra cuando hay un producto seleccionado con números de serie */}
+                      {selectedItem && selectedItem.requiresSerial && selectedItem.serialNumbers && selectedItem.serialNumbers.length > 0 ? (
                         <div style={{ marginTop: 'var(--spacing-md)' }}>
                           <FormGroup>
                             <FormLabel>Números de Serie Disponibles</FormLabel>
@@ -850,91 +912,46 @@ const InventoryOutForm = () => {
                             )}
                           </FormGroup>
                         </div>
-                      )}
-                    </>
-                  )}
+                      ) : null}
                 </Section>
                 
                 {/* Sección de Destino */}
-                {selectedItem && (
-                  <Section>
-                    <SectionTitle>Destino</SectionTitle>
+                <Section>
+                  <SectionTitle>Destino</SectionTitle>
                     
                     {/* Opciones de tipo de destino */}
                     <DestinationTypeOptions>
-                      {/* Siempre mostrar la opción de Empleado, pero solo permitir seleccionarla para items trackables */}
+                      {/* Solo mostrar las opciones de departamento y sucursal */}
                       <div 
-                        className={`option ${destinationType === 'employee' ? 'selected' : ''}`}
-                        onClick={() => {
-                          if (selectedItem.isTrackable || !destinationType.startsWith('employee')) {
-                            handleDestinationTypeChange('employee', setFieldValue);
-                          }
-                        }}
-                        style={{
-                          opacity: selectedItem.isTrackable ? 1 : (destinationType === 'employee' ? 1 : 0.5),
-                          cursor: selectedItem.isTrackable ? 'pointer' : (destinationType === 'employee' ? 'default' : 'not-allowed')
-                        }}
+                        className={`option ${destinationType === 'department' ? 'selected' : ''}`}
+                        onClick={() => handleDestinationTypeChange('department', setFieldValue)}
                       >
                         <div className="option-header">
-                          <Icon name="User" className="option-icon" />
-                          <span className="option-title">Empleado</span>
+                          <Icon name="Users" className="option-icon" />
+                          <span className="option-title">Departamento</span>
                         </div>
                         <div className="option-description">
-                          Asignar directamente a un empleado específico
-                          {selectedItem.isTrackable ? '' : ' (Solo disponible para notebooks y celulares)'}
+                          Asignar al inventario de un departamento completo
                         </div>
                       </div>
                       
-                      {/* Solo mostrar las otras opciones para ítems NO trackables */}
-                      {!selectedItem.isTrackable && (
-                        <>
-                          <div 
-                            className={`option ${destinationType === 'department' ? 'selected' : ''}`}
-                            onClick={() => handleDestinationTypeChange('department', setFieldValue)}
-                          >
-                            <div className="option-header">
-                              <Icon name="Users" className="option-icon" />
-                              <span className="option-title">Departamento</span>
-                            </div>
-                            <div className="option-description">
-                              Asignar al inventario de un departamento completo
-                            </div>
-                          </div>
-                          
-                          <div 
-                            className={`option ${destinationType === 'branch' ? 'selected' : ''}`}
-                            onClick={() => handleDestinationTypeChange('branch', setFieldValue)}
-                          >
-                            <div className="option-header">
-                              <Icon name="Home" className="option-icon" />
-                              <span className="option-title">Sucursal</span>
-                            </div>
-                            <div className="option-description">
-                              Enviar a una sucursal u oficina específica
-                            </div>
-                          </div>
-                          
-                          <div 
-                            className={`option ${destinationType === 'project' ? 'selected' : ''}`}
-                            onClick={() => handleDestinationTypeChange('project', setFieldValue)}
-                          >
-                            <div className="option-header">
-                              <Icon name="Briefcase" className="option-icon" />
-                              <span className="option-title">Proyecto</span>
-                            </div>
-                            <div className="option-description">
-                              Asignar a un proyecto o iniciativa temporal
-                            </div>
-                          </div>
-                        </>
-                      )}
+                      <div 
+                        className={`option ${destinationType === 'branch' ? 'selected' : ''}`}
+                        onClick={() => handleDestinationTypeChange('branch', setFieldValue)}
+                      >
+                        <div className="option-header">
+                          <Icon name="Home" className="option-icon" />
+                          <span className="option-title">Sucursal</span>
+                        </div>
+                        <div className="option-description">
+                          Enviar a una sucursal u oficina específica
+                        </div>
+                      </div>
                     </DestinationTypeOptions>
                     
                     {/* Lista de selección basada en el tipo de destino */}
                     <FormGroup>
-                      <FormLabel>Seleccionar {destinationType === 'employee' ? 'Empleado' : 
-                                            destinationType === 'department' ? 'Departamento' : 
-                                            destinationType === 'branch' ? 'Sucursal' : 'Proyecto'}</FormLabel>
+                      <FormLabel>Seleccionar {destinationType === 'department' ? 'Departamento' : 'Sucursal'}</FormLabel>
                       <select
                         value={values.destination.id}
                         onChange={(e) => {
@@ -950,9 +967,7 @@ const InventoryOutForm = () => {
                         {getDestinationList().map(item => (
                           <option key={item.id} value={item.id}>
                             {item.name} 
-                            {destinationType === 'employee' && item.department ? ` (${item.department})` : ''}
                             {destinationType === 'branch' && item.location ? ` (${item.location})` : ''}
-                            {destinationType === 'project' && item.status ? ` (${item.status})` : ''}
                           </option>
                         ))}
                       </select>
@@ -962,7 +977,7 @@ const InventoryOutForm = () => {
                     </FormGroup>
                     
                     {/* Información adicional para notebooks y celulares */}
-                    {selectedItem.requiresAdditionalInfo && selectedItem.additionalInfoFields && (
+                    {selectedItem && selectedItem.requiresAdditionalInfo && selectedItem.additionalInfoFields ? (
                       <div style={{ marginTop: 'var(--spacing-md)' }}>
                         <FormGroup>
                           <FormLabel>Información Adicional</FormLabel>
@@ -986,14 +1001,12 @@ const InventoryOutForm = () => {
                           </div>
                         </FormGroup>
                       </div>
-                    )}
+                    ) : null}
                   </Section>
-                )}
                 
                 {/* Sección de Notas */}
-                {selectedItem && (
-                  <Section>
-                    <SectionTitle>Notas Adicionales</SectionTitle>
+                <Section>
+                  <SectionTitle>Notas Adicionales</SectionTitle>
                     <FormGroup>
                       <FormLabel htmlFor="notes">Notas (opcional)</FormLabel>
                       <Field
@@ -1006,19 +1019,15 @@ const InventoryOutForm = () => {
                       />
                     </FormGroup>
                     
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'flex-end', 
-                      marginTop: 'var(--spacing-lg)' 
-                    }}>
+                    <FormActions>
                       <Button 
                         type="button" 
-                        variant="secondary" 
+                        variant="outline" 
                         onClick={() => navigate('/inventory')}
-                        style={{ marginRight: 'var(--spacing-md)' }}
                       >
                         Cancelar
                       </Button>
+                      
                       <Button 
                         type="submit" 
                         variant="primary" 
@@ -1026,14 +1035,18 @@ const InventoryOutForm = () => {
                       >
                         {isSubmitting ? (
                           <>
-                            <Icon name="Loader" style={{ marginRight: 'var(--spacing-xs)' }} />
+                            <Icon name="Loader" size={16} style={{ marginRight: 'var(--spacing-xs)' }} />
                             Procesando...
                           </>
-                        ) : 'Registrar Salida'}
+                        ) : (
+                          <>
+                            <Icon name="LogOut" size={16} style={{ marginRight: 'var(--spacing-xs)' }} />
+                            Registrar Salida
+                          </>
+                        )}
                       </Button>
-                    </div>
+                    </FormActions>
                   </Section>
-                )}
               </FormContainer>
             </Form>
           )}

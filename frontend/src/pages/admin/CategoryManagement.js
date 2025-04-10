@@ -353,6 +353,9 @@ const CategoryManagement = () => {
           return cat;
         });
         setCategories(updatedCategories);
+        
+        // Mostrar mensaje de éxito
+        alert(`Subcategoría "${values.name}" actualizada correctamente`);
       } else if (selectedCategory) {
         // Crear nueva subcategoría
         const newSubcategory = {
@@ -367,6 +370,9 @@ const CategoryManagement = () => {
             : cat
         );
         setCategories(updatedCategories);
+        
+        // Mostrar mensaje de éxito
+        alert(`Nueva subcategoría "${values.name}" creada correctamente en ${selectedCategory.name}`);
       }
       
       setSubmitting(false);
@@ -450,25 +456,36 @@ const CategoryManagement = () => {
     <div>
       <PageHeader>
         <PageTitle>Gestión de Categorías</PageTitle>
-        <Button variant="primary" icon="plus" onClick={handleNewCategory}>
-          Nueva Categoría
-        </Button>
+        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+          {selectedCategory && (
+            <Button 
+              variant="outline" 
+              icon="list" 
+              onClick={handleNewSubcategory}
+            >
+              Nueva Subcategoría en {selectedCategory.name}
+            </Button>
+          )}
+          <Button variant="primary" icon="plus" onClick={handleNewCategory}>
+            Nueva Categoría
+          </Button>
+        </div>
       </PageHeader>
       
       <SectionsContainer>
-        <Card title="Categorías y Subcategorías">
+        <Card title="Categorías y Subcategorías" style={{ position: 'relative' }}>
           {categories.length === 0 ? (
             <EmptyState>
               <FeatherIcon icon="box" size={48} />
               <p>No hay categorías definidas</p>
-              <Button variant="primary" icon="plus" onClick={handleNewCategory}>
+              <Button variant="primary" icon="plus" onClick={handleNewCategory} style={{ marginTop: 'var(--spacing-md)' }}>
                 Crear Primera Categoría
               </Button>
             </EmptyState>
           ) : (
             <CategoryList>
               {categories.map(category => (
-                <div key={category.id}>
+                <div key={category.id} style={{ marginBottom: 'var(--spacing-md)' }}>
                   <CategoryItem 
                     active={selectedCategory && selectedCategory.id === category.id}
                     onClick={() => handleCategorySelect(category)}
@@ -510,14 +527,38 @@ const CategoryManagement = () => {
                   
                   {selectedCategory && selectedCategory.id === category.id && (
                     <SubcategoryList>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>Subcategorías</span>
+                        <Button 
+                          variant="outline"
+                          size="small"
+                          icon="plus"
+                          onClick={handleNewSubcategory}
+                          style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                        >
+                          Añadir
+                        </Button>
+                      </div>
                       {category.subcategories.length === 0 ? (
                         <div style={{ 
                           padding: 'var(--spacing-sm)', 
                           fontSize: '0.9rem', 
                           color: 'var(--text-muted)',
-                          fontStyle: 'italic'
+                          fontStyle: 'italic',
+                          backgroundColor: 'rgba(0,0,0,0.03)',
+                          borderRadius: 'var(--border-radius-sm)',
+                          border: '1px dashed rgba(0,0,0,0.1)',
+                          textAlign: 'center'
                         }}>
                           No hay subcategorías definidas
+                          <Button 
+                            variant="text"
+                            icon="plus-circle"
+                            onClick={handleNewSubcategory}
+                            style={{ display: 'block', margin: '5px auto 0', fontSize: '0.85rem' }}
+                          >
+                            Crear subcategoría
+                          </Button>
                         </div>
                       ) : (
                         category.subcategories.map(subcategory => (
@@ -539,6 +580,7 @@ const CategoryManagement = () => {
                                     e.stopPropagation();
                                     handleSubcategorySelect(subcategory);
                                   }}
+                                  style={{ color: 'var(--primary)' }}
                                 >
                                   <FeatherIcon icon="edit-2" size={14} />
                                 </Button>

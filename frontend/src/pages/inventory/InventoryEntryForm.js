@@ -25,14 +25,16 @@ const PageTitle = styled.h1`
 
 const PageDescription = styled.p`
   color: var(--text-muted);
-  margin-top: var(--spacing-xs);
+  margin: var(--spacing-xs) auto var(--spacing-lg);
   font-size: 0.95rem;
+  max-width: 800px;
+  text-align: center;
+  line-height: 1.5;
 `;
 
 const FormContainer = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--spacing-lg);
+  max-width: 800px;
+  margin: 0 auto;
 `;
 
 const FormGroup = styled.div`
@@ -424,13 +426,23 @@ const InventoryEntryForm = () => {
   return (
     <div>
       <PageHeader>
-        <div>
-          <PageTitle>Entrada de Inventario</PageTitle>
-          <PageDescription>
-            Registre nuevos productos que ingresan al inventario. Seleccione del catálogo y complete los detalles requeridos.
-          </PageDescription>
-        </div>
+        <PageTitle>
+          <Icon name="Package" size={24} style={{ marginRight: 'var(--spacing-sm)' }} />
+          Entrada de Inventario
+        </PageTitle>
+        <Button
+          icon="ArrowLeft"
+          variant="outline"
+          onClick={() => navigate('/inventory')}
+        >
+          Volver a Inventario
+        </Button>
       </PageHeader>
+      
+      <PageDescription>
+        Registre nuevos productos que ingresan al inventario.<br/>
+        Seleccione del catálogo y complete los detalles requeridos.
+      </PageDescription>
       
       <Formik
         initialValues={initialValues}
@@ -441,11 +453,11 @@ const InventoryEntryForm = () => {
           <Form>
             <FormContainer>
               <Card>
-                <FormSection>
-                  <h3>Información Básica</h3>
+                <FormSection data-component-name="P">
+                  <h3 data-component-name="Formik">Información Básica</h3>
                   
-                  <FormGroup>
-                    <label htmlFor="productSearch">Producto*</label>
+                  <FormGroup className="sc-gplwa-d ifzSon" data-component-name="P">
+                    <label htmlFor="productSearch" data-component-name="Formik">Producto*</label>
                     <div style={{ position: 'relative' }}>
                       <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
                         <Icon 
@@ -585,19 +597,20 @@ const InventoryEntryForm = () => {
                     </ProductCard>
                   )}
                   
-                  <FieldGrid>
-                    <FormGroup>
-                      <label htmlFor="quantity">Cantidad*</label>
+                  <FieldGrid className="sc-cTTdyq ffrRSM">
+                    <FormGroup className="sc-gplwa-d ifzSon">
+                      <label htmlFor="quantity" data-component-name="Formik">Cantidad*</label>
                       <Field 
                         type="number" 
                         id="quantity" 
                         name="quantity" 
-                        min="1" 
+                        min="1"
+                        data-component-name="Field"
                       />
                       <ErrorMessage name="quantity" component={ErrorText} />
                     </FormGroup>
                     
-                    <FormGroup>
+                    <FormGroup className="sc-gplwa-d ifzSon" data-component-name="P">
                       <label htmlFor="receiptDate">Fecha de Recepción*</label>
                       <Field type="date" id="receiptDate" name="receiptDate" />
                       <ErrorMessage name="receiptDate" component={ErrorText} />
@@ -608,8 +621,8 @@ const InventoryEntryForm = () => {
                 
                 {/* Números de serie para productos que lo requieren */}
                 {selectedProduct && selectedProduct.requiresSerial && (
-                  <FormSection>
-                    <h3>Números de Serie</h3>
+                  <FormSection data-component-name="P">
+                    <h3 data-component-name="Formik">Números de Serie</h3>
                     <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}>
                       Este producto requiere registro de números de serie individuales.
                       {values.quantity > 1 && ' Por favor, registre los números de serie para todas las unidades.'}
@@ -625,6 +638,7 @@ const InventoryEntryForm = () => {
                                   <Field
                                     name={`serialNumbers.${index}`}
                                     placeholder={`Número de serie #${index+1}`}
+                                    data-component-name="Field"
                                   />
                                   <ScanButton
                                     type="button"
@@ -670,11 +684,17 @@ const InventoryEntryForm = () => {
                   </FormSection>
                 )}
                 
-                <FormSection>
+                <FormSection data-component-name="P">
                   <h3>Notas Adicionales</h3>
-                  <FormGroup>
-                    <label htmlFor="notes">Notas</label>
-                    <Field as="textarea" id="notes" name="notes" placeholder="Cualquier información adicional relevante sobre esta entrada de inventario" />
+                  <FormGroup className="sc-gplwa-d ifzSon">
+                    <label htmlFor="notes" data-component-name="Formik">Notas</label>
+                    <Field 
+                      as="textarea" 
+                      id="notes" 
+                      name="notes" 
+                      placeholder="Cualquier información adicional relevante sobre esta entrada de inventario"
+                      data-component-name="Field"
+                    />
                   </FormGroup>
                 </FormSection>
                 
