@@ -4,6 +4,8 @@ import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { inventoryService, reportService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -286,6 +288,8 @@ const LowStock = () => {
   const [criticalItems, setCriticalItems] = useState([]);
   const [warningItems, setWarningItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { showNotification } = useNotification();
   const [filters, setFilters] = useState({
     search: '',
     category: '',
@@ -297,153 +301,112 @@ const LowStock = () => {
     limit: 10,
     total: 0
   });
+  const [categories, setCategories] = useState([]);
   
-  // Simular carga de datos
+  // Cargar datos de stock bajo desde la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockLowStockItems = [
-      {
-        id: 1,
-        name: 'Tóner HP CF380X Negro',
-        serialNumber: '',
-        category: 'Consumibles',
-        subcategory: 'Toner',
-        currentStock: 2,
-        minimumStock: 5,
-        idealStock: 10,
-        location: 'Depósito Central',
-        lastRestocked: '2025-03-01T10:00:00Z',
-        status: 'Crítico',
-        compatibility: 'HP Color LaserJet Pro M476',
-        icon: 'box',
-        isConsumable: true
-      },
-      {
-        id: 2,
-        name: 'Cargador Universal Notebook 65W',
-        serialNumber: '',
-        category: 'Consumibles',
-        subcategory: 'Cargadores',
-        currentStock: 4,
-        minimumStock: 8,
-        idealStock: 15,
-        location: 'Oficina Central',
-        lastRestocked: '2025-02-15T14:30:00Z',
-        status: 'Bajo',
-        compatibility: 'Dell, Lenovo, HP',
-        icon: 'battery-charging',
-        isConsumable: true
-      },
-      {
-        id: 3,
-        name: 'Cable HDMI 2m',
-        serialNumber: '',
-        category: 'Consumibles',
-        subcategory: 'Cables',
-        currentStock: 3,
-        minimumStock: 10,
-        idealStock: 20,
-        location: 'Depósito Central',
-        lastRestocked: '2025-01-25T09:15:00Z',
-        status: 'Crítico',
-        compatibility: '',
-        icon: 'box',
-        isConsumable: true
-      },
-      {
-        id: 4,
-        name: 'Pilas AA Alcalinas (Pack 4u)',
-        serialNumber: '',
-        category: 'Consumibles',
-        subcategory: 'Pilas',
-        currentStock: 5,
-        minimumStock: 10,
-        idealStock: 25,
-        location: 'Oficina Central',
-        lastRestocked: '2025-03-05T11:45:00Z',
-        status: 'Bajo',
-        compatibility: '',
-        icon: 'battery',
-        isConsumable: true
-      },
-      {
-        id: 5,
-        name: 'Teclado USB básico',
-        serialNumber: '',
-        category: 'Periféricos',
-        subcategory: 'Teclados',
-        currentStock: 2,
-        minimumStock: 5,
-        idealStock: 10,
-        location: 'Depósito Central',
-        lastRestocked: '2025-02-10T13:20:00Z',
-        status: 'Crítico',
-        compatibility: '',
-        icon: 'keyboard',
-        isConsumable: false
-      },
-      {
-        id: 6,
-        name: 'Adaptador USB-C a HDMI',
-        serialNumber: '',
-        category: 'Componentes',
-        subcategory: 'Adaptadores USB Varios',
-        currentStock: 3,
-        minimumStock: 6,
-        idealStock: 12,
-        location: 'Oficina Central',
-        lastRestocked: '2025-01-15T16:30:00Z',
-        status: 'Bajo',
-        compatibility: '',
-        icon: 'usb',
-        isConsumable: false
-      },
-      {
-        id: 7,
-        name: 'Drum Xerox 113R00762',
-        serialNumber: '',
-        category: 'Consumibles',
-        subcategory: 'Drum',
-        currentStock: 1,
-        minimumStock: 3,
-        idealStock: 6,
-        location: 'Depósito Central',
-        lastRestocked: '2025-01-05T10:30:00Z',
-        status: 'Crítico',
-        compatibility: 'Xerox Phaser 4600',
-        icon: 'box',
-        isConsumable: true
-      },
-      {
-        id: 8,
-        name: 'Mouse Óptico USB',
-        serialNumber: '',
-        category: 'Periféricos',
-        subcategory: 'Mouse',
-        currentStock: 4,
-        minimumStock: 8,
-        idealStock: 15,
-        location: 'Oficina Central',
-        lastRestocked: '2025-02-20T09:00:00Z',
-        status: 'Bajo',
-        compatibility: '',
-        icon: 'mouse-pointer',
-        isConsumable: false
+    const fetchLowStockItems = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Obtener items con stock bajo del reporte especializado
+        const response = await reportService.lowStock();
+        
+        // Procesar los datos recibidos
+        if (response.data && Array.isArray(response.data)) {
+          // Mapear los datos para incluir información adicional necesaria para el componente
+          const mappedItems = response.data.map(item => {
+            // Determinar el icono basado en la categoría
+            let icon = 'box';
+            const categoryLower = (item.category || '').toLowerCase();
+            const subcategoryLower = (item.subcategory || '').toLowerCase();
+            
+            if (categoryLower.includes('periférico')) {
+              if (subcategoryLower.includes('teclado')) icon = 'keyboard';
+              else if (subcategoryLower.includes('mouse')) icon = 'mouse-pointer';
+              else if (subcategoryLower.includes('monitor')) icon = 'monitor';
+            } else if (categoryLower.includes('consumible')) {
+              if (subcategoryLower.includes('toner') || subcategoryLower.includes('tóner')) icon = 'printer';
+              else if (subcategoryLower.includes('pila')) icon = 'battery';
+              else if (subcategoryLower.includes('cargador')) icon = 'battery-charging';
+            } else if (categoryLower.includes('componente')) {
+              if (subcategoryLower.includes('adaptador') || subcategoryLower.includes('usb')) icon = 'usb';
+              else if (subcategoryLower.includes('memoria')) icon = 'cpu';
+              else if (subcategoryLower.includes('disco')) icon = 'hard-drive';
+            }
+            
+            // Determinar el estado basado en los niveles de stock
+            const currentStock = Number(item.currentStock) || 0;
+            const minimumStock = Number(item.minimumThreshold || item.minimumStock) || 1;
+            const ratio = currentStock / minimumStock;
+            const status = ratio < 0.5 ? 'Crítico' : 'Bajo';
+            
+            return {
+              ...item,
+              icon,
+              status,
+              currentStock,
+              minimumStock,
+              idealStock: Number(item.idealStock) || (minimumStock * 2),
+              isConsumable: item.type === 'consumable',
+              compatibility: item.compatibleWith || ''
+            };
+          });
+          
+          // Aplicar filtros
+          let filtered = [...mappedItems];
+          
+          if (filters.search) {
+            filtered = filtered.filter(item => 
+              (item.name && item.name.toLowerCase().includes(filters.search.toLowerCase())) ||
+              (item.category && item.category.toLowerCase().includes(filters.search.toLowerCase())) ||
+              (item.subcategory && item.subcategory.toLowerCase().includes(filters.search.toLowerCase()))
+            );
+          }
+          
+          if (filters.category) {
+            filtered = filtered.filter(item => item.category === filters.category);
+          }
+          
+          if (filters.status) {
+            filtered = filtered.filter(item => item.status === filters.status);
+          }
+          
+          // Separar en críticos y con advertencia
+          const critical = filtered.filter(item => item.status === 'Crítico');
+          const warning = filtered.filter(item => item.status === 'Bajo');
+          
+          setLowStockItems(filtered);
+          setCriticalItems(critical);
+          setWarningItems(warning);
+          
+          // Actualizar paginación
+          setPagination(prev => ({
+            ...prev,
+            total: filtered.length
+          }));
+          
+          // Obtener categorías únicas para el filtro
+          const uniqueCategories = [...new Set(filtered.map(item => item.category))]
+            .filter(Boolean)
+            .sort();
+          
+          setCategories(uniqueCategories);
+        } else {
+          throw new Error('Formato de respuesta inválido');
+        }
+      } catch (error) {
+        console.error('Error al cargar items con stock bajo:', error);
+        setError('Error al cargar items con stock bajo. Por favor, intente nuevamente.');
+        showNotification('Error al cargar datos de stock bajo', 'error');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
     
-    setTimeout(() => {
-      setLowStockItems(mockLowStockItems);
-      setCriticalItems(mockLowStockItems.filter(item => item.status === 'Crítico'));
-      setWarningItems(mockLowStockItems.filter(item => item.status === 'Bajo'));
-      setPagination({
-        page: 1,
-        limit: 10,
-        total: mockLowStockItems.length
-      });
-      setLoading(false);
-    }, 1000);
-  }, []);
+    fetchLowStockItems();
+  }, [filters.search, filters.category, filters.status, showNotification]);
   
   // Manejar cambios en filtros
   const handleFilterChange = (e) => {
@@ -452,7 +415,6 @@ const LowStock = () => {
       ...prev,
       [name]: value
     }));
-    // En una implementación real, aquí haríamos una llamada a la API con los nuevos filtros
   };
   
   // Función para formatear fecha
@@ -593,9 +555,9 @@ const LowStock = () => {
           onChange={handleFilterChange}
         >
           <option value="">Todas las Categorías</option>
-          <option value="Consumibles">Consumibles</option>
-          <option value="Periféricos">Periféricos</option>
-          <option value="Componentes">Componentes</option>
+          {categories.map((category, index) => (
+            <option key={index} value={category}>{category}</option>
+          ))}
         </FilterSelect>
         
         <FilterSelect 

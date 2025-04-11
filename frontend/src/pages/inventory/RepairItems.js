@@ -5,6 +5,8 @@ import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { repairService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -303,10 +305,13 @@ const Notification = styled.div`
 
 const RepairItems = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [repairItems, setRepairItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState(null);
+  const [error, setError] = useState(null);
   const [lastAction, setLastAction] = useState(null);
+  const [providers, setProviders] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
     category: '',
@@ -318,137 +323,90 @@ const RepairItems = () => {
     total: 0
   });
   
-  // Simular carga de datos
+  // Obtener elementos en reparación desde la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockRepairItems = [
-      {
-        id: 1,
-        assetId: 101,
-        assetName: 'Notebook Dell Latitude 7400',
-        assetCategory: 'Computadoras',
-        assetSubcategory: 'Notebooks',
-        serialNumber: 'DL7400-123456',
-        problem: 'La pantalla presenta fallos al encender, muestra líneas horizontales y ocasionalmente se apaga por completo.',
-        problemDetails: 'El usuario reporta que el problema comenzó después de una caída leve.',
-        sentDate: '2025-02-10T14:20:30Z',
-        estimatedReturnDate: '2025-02-25T00:00:00Z',
-        status: 'En Proceso',
-        provider: 'Servicio Técnico Dell',
-        providerReference: 'REP-2025-0123',
-        inWarranty: true,
-        sentBy: 'Soporte2',
-        previousStatus: 'Asignado',
-        previousAssignee: 'Juan Pérez',
-        icon: 'laptop',
-        notes: 'Equipo prioritario, necesario para presentación del 01/03',
-        lastUpdate: '2025-02-15T10:30:00Z',
-        tags: ['Garantía', 'Pantalla', 'Prioritario']
-      },
-      {
-        id: 2,
-        assetId: 102,
-        assetName: 'iPhone 13 Pro',
-        assetCategory: 'Celulares',
-        assetSubcategory: '',
-        serialNumber: 'IP13-456789',
-        problem: 'No carga correctamente, la batería dura menos de 2 horas de uso.',
-        problemDetails: 'La batería muestra un estado de salud del 65% según diagnóstico.',
-        sentDate: '2025-01-20T11:15:45Z',
-        estimatedReturnDate: '2025-02-05T00:00:00Z',
-        status: 'En Proceso',
-        provider: 'iService',
-        providerReference: 'ISV-2025-456',
-        inWarranty: false,
-        sentBy: 'Admin',
-        previousStatus: 'Asignado',
-        previousAssignee: 'María López',
-        icon: 'smartphone',
-        notes: '',
-        lastUpdate: '2025-01-30T14:20:00Z',
-        tags: ['Batería', 'Fuera de Garantía']
-      },
-      {
-        id: 3,
-        assetId: 103,
-        assetName: 'Monitor LG 27"',
-        assetCategory: 'Periféricos',
-        assetSubcategory: 'Monitores',
-        serialNumber: 'LG27-789012',
-        problem: 'Sin imagen, el LED de encendido funciona pero no muestra señal de video.',
-        problemDetails: 'Se probó con diferentes cables y fuentes sin éxito.',
-        sentDate: '2025-02-18T09:30:15Z',
-        estimatedReturnDate: '2025-03-10T00:00:00Z',
-        status: 'En Proceso',
-        provider: 'Servicio Técnico LG',
-        providerReference: 'LG-25-789',
-        inWarranty: true,
-        sentBy: 'Soporte1',
-        previousStatus: 'En Stock',
-        previousAssignee: '',
-        icon: 'monitor',
-        notes: '',
-        lastUpdate: '2025-02-20T10:15:00Z',
-        tags: ['Garantía', 'Sin señal']
-      },
-      {
-        id: 4,
-        assetId: 104,
-        assetName: 'Impresora HP LaserJet Pro',
-        assetCategory: 'Periféricos',
-        assetSubcategory: 'Impresoras',
-        serialNumber: 'HPLJ-112233',
-        problem: 'Error en fusor, código E2-01.',
-        problemDetails: 'La impresora muestra mensaje de error en pantalla y no imprime.',
-        sentDate: '2025-01-05T13:45:20Z',
-        estimatedReturnDate: '2025-01-20T00:00:00Z',
-        status: 'En Proceso',
-        provider: 'Servicio Técnico HP',
-        providerReference: 'HP-25-112',
-        inWarranty: false,
-        sentBy: 'Admin',
-        previousStatus: 'Asignado',
-        previousAssignee: 'Departamento Contable',
-        icon: 'printer',
-        notes: 'Listo para retirar del servicio técnico',
-        lastUpdate: '2025-01-18T16:45:00Z',
-        tags: ['Fusor', 'Listo', 'Fuera de Garantía']
-      },
-      {
-        id: 5,
-        assetId: 105,
-        assetName: 'Notebook HP ProBook 450',
-        assetCategory: 'Computadoras',
-        assetSubcategory: 'Notebooks',
-        serialNumber: 'HP450-654321',
-        problem: 'Sobrecalentamiento y apagados repentinos.',
-        problemDetails: 'El equipo se apaga después de 10-15 minutos de uso intensivo.',
-        sentDate: '2025-02-05T10:00:00Z',
-        estimatedReturnDate: '2025-02-20T00:00:00Z',
-        status: 'En Proceso',
-        provider: 'TecnoService',
-        providerReference: 'TS-2025-789',
-        inWarranty: false,
-        sentBy: 'Soporte2',
-        previousStatus: 'Asignado',
-        previousAssignee: 'Ana Martínez',
-        icon: 'laptop',
-        notes: 'Daño en motherboard, costo de reparación excede el 70% del valor del equipo',
-        lastUpdate: '2025-02-15T11:30:00Z',
-        tags: ['Motherboard', 'Baja']
+    const fetchRepairItems = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Crear parámetros para la consulta
+        const queryParams = {
+          status: 'in_progress',
+          ...filters
+        };
+        
+        // Agregar parámetros de paginación
+        queryParams.page = pagination.page;
+        queryParams.limit = pagination.limit;
+        
+        // Obtener elementos en reparación desde la API
+        const response = await repairService.getByStatus('in_progress', queryParams);
+        
+        if (response && response.data) {
+          // Procesar los datos y agregar iconos adecuados
+          const processedItems = response.data.map(item => {
+            // Determinar icono basado en la categoría
+            let icon = 'Box';
+            const category = (item.assetCategory || '').toLowerCase();
+            const subcategory = (item.assetSubcategory || '').toLowerCase();
+            
+            if (category.includes('computadora') || category.includes('notebook')) {
+              icon = 'Laptop';
+            } else if (category.includes('celular')) {
+              icon = 'Smartphone';
+            } else if (category.includes('periférico')) {
+              if (subcategory.includes('monitor')) icon = 'Monitor';
+              else if (subcategory.includes('impresora')) icon = 'Printer';
+              else if (subcategory.includes('teclado')) icon = 'Type';
+              else if (subcategory.includes('mouse')) icon = 'MousePointer';
+            }
+            
+            // Recopilar proveedores y categorías únicos para los filtros
+            if (item.provider && !providers.includes(item.provider)) {
+              setProviders(prev => [...prev, item.provider]);
+            }
+            
+            if (item.assetCategory && !categories.includes(item.assetCategory)) {
+              setCategories(prev => [...prev, item.assetCategory]);
+            }
+            
+            // Procesar tags si vienen como string de la API
+            let processedTags = item.tags;
+            if (typeof item.tags === 'string') {
+              try {
+                processedTags = JSON.parse(item.tags);
+              } catch {
+                processedTags = item.tags.split(',').map(tag => tag.trim());
+              }
+            }
+            
+            return {
+              ...item,
+              icon,
+              tags: Array.isArray(processedTags) ? processedTags : []
+            };
+          });
+          
+          setRepairItems(processedItems);
+          setPagination(prev => ({
+            ...prev,
+            total: response.headers['x-total-count'] || processedItems.length
+          }));
+        } else {
+          throw new Error('Formato de respuesta inválido');
+        }
+      } catch (error) {
+        console.error('Error al cargar elementos en reparación:', error);
+        setError('Error al cargar elementos en reparación. Por favor, intente nuevamente.');
+        showNotification('Error al cargar elementos en reparación', 'error');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
     
-    setTimeout(() => {
-      setRepairItems(mockRepairItems);
-      setPagination({
-        page: 1,
-        limit: 5,
-        total: mockRepairItems.length
-      });
-      setLoading(false);
-    }, 1000);
-  }, []);
+    fetchRepairItems();
+  }, [filters, pagination.page, pagination.limit, showNotification]);
   
   // Manejar cambios en filtros
   const handleFilterChange = (e) => {
@@ -457,7 +415,12 @@ const RepairItems = () => {
       ...prev,
       [name]: value
     }));
-    // En una implementación real, aquí haríamos una llamada a la API con los nuevos filtros
+    
+    // Resetear paginación al cambiar filtros
+    setPagination(prev => ({
+      ...prev,
+      page: 1
+    }));
   };
   
   // Función para formatear fecha
@@ -487,88 +450,121 @@ const RepairItems = () => {
     return <Badge variant="warning">{status}</Badge>;
   };
   
-  // Función para mostrar notificaciones
-  const showNotification = useCallback((message, type = 'success', undoAction = null) => {
-    setNotification({ message, type, undoAction });
-    
-    // Auto-cerrar notificación después de 5 segundos si no hay opción de deshacer
-    if (!undoAction) {
-      setTimeout(() => {
-        setNotification(null);
-      }, 5000);
-    }
-  }, []);
+  // Mostrar notificación temporal
+  const showTempNotification = useCallback((message, type = 'success', action = null) => {
+    showNotification(message, type);
+    setLastAction(action);
+  }, [showNotification]);
   
   // Función para cerrar notificación
   const closeNotification = () => {
-    setNotification(null);
     setLastAction(null);
   };
   
-  // Función para deshacer la última acción
-  const undoLastAction = () => {
-    if (lastAction) {
+  // Deshacer la última acción
+  const undoLastAction = useCallback(async () => {
+    if (!lastAction) return;
+    
+    try {
       if (lastAction.type === 'return') {
-        // Restaurar el elemento eliminado
+        // Enviar solicitud a la API para deshacer retorno al stock
+        await repairService.undoReturnToStock(lastAction.id);
+        
+        // Restaurar el elemento en el estado local
         setRepairItems(prev => [...prev, lastAction.item]);
+        
+        // Mostrar notificación
         showNotification('Se ha deshecho la acción: Retorno al stock', 'info');
       } else if (lastAction.type === 'discharge') {
-        // Restaurar el elemento eliminado
+        // Enviar solicitud a la API para deshacer baja de activo
+        await repairService.undoDischarge(lastAction.id);
+        
+        // Restaurar el elemento en el estado local
         setRepairItems(prev => [...prev, lastAction.item]);
+        
+        // Mostrar notificación
         showNotification('Se ha deshecho la acción: Baja de activo', 'info');
       }
-      setLastAction(null);
+    } catch (error) {
+      console.error('Error al deshacer acción:', error);
+      showNotification(
+        'Error al deshacer la acción. Por favor, inténtelo nuevamente.',
+        'error'
+      );
+    }
+    
+    // Limpiar la última acción
+    setLastAction(null);
+  }, [lastAction, showNotification]);
+  
+  // Función para manejar el retorno del activo al stock
+  const handleReturnToStock = async (assetId) => {
+    try {
+      // Encontrar el elemento antes de eliminarlo para poder restaurarlo
+      const itemToRemove = repairItems.find(item => item.id === assetId);
+      
+      if (!itemToRemove) {
+        throw new Error('No se encontró el activo');
+      }
+      
+      // Llamar a la API para retornar el activo al stock
+      await repairService.returnToStock(assetId);
+      
+      // Actualizar el listado local
+      setRepairItems(prev => prev.filter(item => item.id !== assetId));
+      
+      // Guardar la acción para poder deshacerla
+      setLastAction({
+        type: 'return',
+        id: assetId,
+        item: itemToRemove
+      });
+      
+      // Mostrar mensaje con opción de deshacer
+      showTempNotification(
+        `Activo ${itemToRemove.assetName} retornado al inventario`, 
+        'success', 
+        { type: 'return', id: assetId, item: itemToRemove }
+      );
+    } catch (error) {
+      console.error('Error al retornar activo al stock:', error);
+      showNotification('Error al retornar el activo al stock', 'error');
     }
   };
   
-  // Función para manejar el retorno del activo al stock
-  const handleReturnToStock = (assetId) => {
-    // Encontrar el elemento antes de eliminarlo para poder restaurarlo
-    const itemToRemove = repairItems.find(item => item.id === assetId);
-    
-    // En una implementación real, se llamaría a la API para actualizar el estado
-    console.log(`Retornando activo ${assetId} al inventario`);
-    
-    // Simulamos la actualización del listado
-    setRepairItems(prev => prev.filter(item => item.id !== assetId));
-    
-    // Guardar la acción para poder deshacerla
-    setLastAction({
-      type: 'return',
-      item: itemToRemove
-    });
-    
-    // Mostrar mensaje con opción de deshacer
-    showNotification(
-      `Activo ${itemToRemove.assetName} retornado al inventario`, 
-      'success', 
-      true
-    );
-  };
-  
   // Función para procesar la baja de un activo
-  const handleProcessDischarge = (assetId) => {
-    // Encontrar el elemento antes de eliminarlo para poder restaurarlo
-    const itemToRemove = repairItems.find(item => item.id === assetId);
+  const handleProcessDischarge = async (assetId) => {
+    try {
+      // Encontrar el elemento antes de eliminarlo para poder restaurarlo
+      const itemToRemove = repairItems.find(item => item.id === assetId);
+      
+      if (!itemToRemove) {
+        throw new Error('No se encontró el activo');
+      }
+      
+      // Llamar a la API para dar de baja el activo
+      await repairService.dischargeAsset(assetId);
+      
+      // Actualizar el listado local
+      setRepairItems(prev => prev.filter(item => item.id !== assetId));
     
-    // En una implementación real, se llamaría a la API para dar de baja el activo
-    console.log(`Procesando baja del activo ${assetId}`);
-    
-    // Simulamos la actualización del listado
-    setRepairItems(prev => prev.filter(item => item.id !== assetId));
-    
-    // Guardar la acción para poder deshacerla
-    setLastAction({
-      type: 'discharge',
-      item: itemToRemove
-    });
-    
-    // Mostrar mensaje con opción de deshacer
-    showNotification(
-      `Activo ${itemToRemove.assetName} procesado para baja`, 
-      'error', 
-      true
-    );
+      // Guardar la acción para poder deshacerla
+      setLastAction({
+        type: 'discharge',
+        id: assetId,
+        item: itemToRemove
+      });
+      
+      // Mostrar mensaje con opción de deshacer
+      showTempNotification(
+        `Activo ${itemToRemove.assetName} procesado para baja`, 
+        'error', 
+        { type: 'discharge', id: assetId, item: itemToRemove }
+      );
+    } catch (error) {
+      console.error('Error al procesar baja del activo:', error);
+      showNotification('Error al procesar baja del activo', 'error');
+    }
   };
   
   // Manejar paginación
@@ -581,7 +577,7 @@ const RepairItems = () => {
       ...prev,
       page: newPage
     }));
-    // En una implementación real, aquí haríamos una llamada a la API para obtener la nueva página
+    // La llamada a la API se ejecuta automáticamente a través del useEffect
   };
   
   return (
@@ -624,9 +620,9 @@ const RepairItems = () => {
           onChange={handleFilterChange}
         >
           <option value="">Todas las Categorías</option>
-          <option value="Computadoras">Computadoras</option>
-          <option value="Celulares">Celulares</option>
-          <option value="Periféricos">Periféricos</option>
+          {categories.map((category, index) => (
+            <option key={index} value={category}>{category}</option>
+          ))}
         </FilterSelect>
         
         <FilterSelect 
@@ -635,11 +631,9 @@ const RepairItems = () => {
           onChange={handleFilterChange}
         >
           <option value="">Todos los Proveedores</option>
-          <option value="Servicio Técnico Dell">Servicio Técnico Dell</option>
-          <option value="iService">iService</option>
-          <option value="Servicio Técnico LG">Servicio Técnico LG</option>
-          <option value="Servicio Técnico HP">Servicio Técnico HP</option>
-          <option value="TecnoService">TecnoService</option>
+          {providers.map((provider, index) => (
+            <option key={index} value={provider}>{provider}</option>
+          ))}
         </FilterSelect>
         
 
@@ -786,6 +780,7 @@ const RepairItems = () => {
                       size="small"
                       icon="check-circle"
                       onClick={() => handleReturnToStock(item.id)}
+                      disabled={loading}
                     >
                       Marcar como Recibido
                     </Button>
@@ -795,6 +790,7 @@ const RepairItems = () => {
                       size="small"
                       icon="x-circle"
                       onClick={() => handleProcessDischarge(item.id)}
+                      disabled={loading}
                     >
                       Procesar Baja
                     </Button>
@@ -804,53 +800,38 @@ const RepairItems = () => {
             </RepairCard>
           ))}
           
-          <PaginationContainer>
-            <PaginationInfo>
-              Mostrando {repairItems.length} de {pagination.total} activos en reparación
-            </PaginationInfo>
-            
-            <PaginationButtons>
-              <Button 
-                variant="outline" 
-                disabled={pagination.page === 1}
-                onClick={() => handlePageChange(pagination.page - 1)}
-              >
-                <FeatherIcon icon="chevron-left" size={16} />
-              </Button>
+          {repairItems.length > 0 && (
+            <PaginationContainer>
+              <PaginationInfo>
+                Mostrando {repairItems.length} de {pagination.total} activos en reparación
+              </PaginationInfo>
               
-              <Button variant="outline">
-                {pagination.page}
-              </Button>
-              
-              <Button 
-                variant="outline"
-                disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit)}
-                onClick={() => handlePageChange(pagination.page + 1)}
-              >
-                <FeatherIcon icon="chevron-right" size={16} />
-              </Button>
-            </PaginationButtons>
-          </PaginationContainer>
+              <PaginationButtons>
+                <Button 
+                  variant="outline" 
+                  disabled={pagination.page === 1 || loading}
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                >
+                  <FeatherIcon icon="chevron-left" size={16} />
+                </Button>
+                
+                <Button variant="outline">
+                  {pagination.page}
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit) || loading}
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                >
+                  <FeatherIcon icon="chevron-right" size={16} />
+                </Button>
+              </PaginationButtons>
+            </PaginationContainer>
+          )}
         </>
       )}
-      {/* Mostrar notificación si existe */}
-      {notification && (
-        <Notification type={notification.type}>
-          <FeatherIcon 
-            icon={notification.type === 'success' ? 'check-circle' : notification.type === 'error' ? 'alert-circle' : 'alert-triangle'} 
-            size={20} 
-          />
-          <span>{notification.message}</span>
-          
-          {notification.undoAction && lastAction && (
-            <span className="undo" onClick={undoLastAction}>Deshacer</span>
-          )}
-          
-          <span className="close" onClick={closeNotification}>
-            <FeatherIcon icon="x" size={16} />
-          </span>
-        </Notification>
-      )}
+
     </div>
   );
 };

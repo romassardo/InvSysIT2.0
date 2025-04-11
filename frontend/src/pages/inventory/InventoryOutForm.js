@@ -7,6 +7,8 @@ import Icon from '../../components/ui/Icon';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { productService, inventoryService, formService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -395,120 +397,101 @@ const InventoryOutForm = () => {
     additionalInfo: {}
   };
   
-  // Cargar inventario disponible
+  // Obtener el contexto de notificaciones
+  const { showNotification } = useNotification();
+  
+  // Cargar datos del formulario y productos del inventario
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockInventoryItems = [
-      { 
-        id: 1, 
-        name: 'Notebook Dell Latitude 7400', 
-        category: 'Computadoras', 
-        subcategory: 'Notebooks', 
-        icon: 'Laptop', 
-        requiresSerial: true,
-        currentStock: 3,
-        serialNumbers: ['DL7400-123456', 'DL7400-123457', 'DL7400-123458'],
-        isTrackable: true,
-        requiresAdditionalInfo: true,
-        additionalInfoFields: [
-          { name: 'bitlockerPassword', label: 'Contraseña de Bitlocker', type: 'password' }
-        ]
-      },
-      { 
-        id: 2, 
-        name: 'iPhone 13 Pro', 
-        category: 'Celulares', 
-        icon: 'Smartphone', 
-        requiresSerial: true,
-        currentStock: 2,
-        serialNumbers: ['IP13-456789', 'IP13-456790'],
-        isTrackable: true,
-        requiresAdditionalInfo: true,
-        additionalInfoFields: [
-          { name: 'phoneNumber', label: 'Número de Teléfono', type: 'text' },
-          { name: 'gmailAccount', label: 'Cuenta Gmail', type: 'email' },
-          { name: 'gmailPassword', label: 'Contraseña Gmail', type: 'password' },
-          { name: 'whatsappVerification', label: 'Código de Verificación WhatsApp', type: 'text' }
-        ]
-      },
-      { 
-        id: 3, 
-        name: 'Monitor Samsung 24"', 
-        category: 'Periféricos', 
-        subcategory: 'Monitores', 
-        icon: 'Monitor', 
-        requiresSerial: true,
-        currentStock: 5,
-        serialNumbers: ['SM24-001', 'SM24-002', 'SM24-003', 'SM24-004', 'SM24-005'],
-        isTrackable: false
-      },
-      { 
-        id: 4, 
-        name: 'Teclado Logitech MX Keys', 
-        category: 'Periféricos', 
-        subcategory: 'Teclados', 
-        icon: 'Type', 
-        requiresSerial: false, 
-        currentStock: 10,
-        isTrackable: false
-      },
-      { 
-        id: 5, 
-        name: 'Cable HDMI 1.5m', 
-        category: 'Consumibles', 
-        subcategory: 'Cables', 
-        icon: 'Paperclip', 
-        requiresSerial: false,
-        currentStock: 15,
-        isTrackable: false
-      },
-      { 
-        id: 6, 
-        name: 'Toner HP 85A', 
-        category: 'Consumibles', 
-        subcategory: 'Toner', 
-        icon: 'Box', 
-        requiresSerial: false,
-        currentStock: 7,
-        isTrackable: false
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Cargar configuración del formulario
+        const formResponse = await formService.getInventoryOutForm();
+        
+        // Cargar productos disponibles
+        const productsResponse = await productService.getAll();
+        
+        // Filtrar por productos que no sean notebooks ni celulares y tengan stock
+        const availableProducts = productsResponse.data.filter(product => {
+          // Excluir notebooks y celulares (que usan el formulario de asignación)
+          const isNotebookOrPhone = 
+            (product.categoryPath && 
+             (product.categoryPath.includes('Computadoras/Notebooks') || 
+              product.categoryPath.includes('Celulares')));
+          
+          // Solo incluir productos con stock disponible
+          return !isNotebookOrPhone && product.currentStock > 0;
+        });
+        
+        // Mapear los productos para agregar propiedades necesarias para el formulario
+        const mappedProducts = await Promise.all(availableProducts.map(async (product) => {
+          // Para productos que requieren número de serie, obtener los disponibles
+          let serialNumbers = [];
+          if (product.trackSerial) {
+            const detailResponse = await productService.getById(product.id);
+            serialNumbers = detailResponse.data.availableSerialNumbers || [];
+          }
+          
+          // Determinar el icono basado en la categoría
+          let icon = 'Box';
+          if (product.categoryPath) {
+            if (product.categoryPath.includes('Monitores')) icon = 'Monitor';
+            else if (product.categoryPath.includes('Teclados')) icon = 'Type';
+            else if (product.categoryPath.includes('Mouse')) icon = 'Mouse';
+            else if (product.categoryPath.includes('Cables')) icon = 'Paperclip';
+            else if (product.categoryPath.includes('Toner')) icon = 'Printer';
+          }
+          
+          return {
+            ...product,
+            icon,
+            requiresSerial: product.trackSerial,
+            serialNumbers,
+            category: product.categoryPath ? product.categoryPath.split('/')[0] : 'Otros',
+            subcategory: product.categoryPath ? product.categoryPath.split('/').slice(1).join('/') : ''
+          };
+        }));
+        
+        setInventoryItems(mappedProducts);
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+        showNotification('Error al cargar los productos del inventario', 'error');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
     
-    setInventoryItems(mockInventoryItems);
-    setLoading(false);
-  }, []);
+    loadData();
+  }, [showNotification]);
   
-  // Lista de empleados
-  const employeesList = [
-    { id: 1, name: 'Juan Pérez', department: 'Desarrollo' },
-    { id: 2, name: 'María López', department: 'Marketing' },
-    { id: 3, name: 'Carlos González', department: 'Administración' },
-    { id: 4, name: 'Ana Martínez', department: 'Recursos Humanos' },
-    { id: 5, name: 'Pedro Sánchez', department: 'Ventas' }
-  ];
+  // Listas para los destinos
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [branchesList, setBranchesList] = useState([]);
   
-  // Lista de departamentos
-  const departmentsList = [
-    { id: 1, name: 'Desarrollo' },
-    { id: 2, name: 'Marketing' },
-    { id: 3, name: 'Administración' },
-    { id: 4, name: 'Recursos Humanos' },
-    { id: 5, name: 'Ventas' }
-  ];
-  
-  // Lista de sucursales
-  const branchesList = [
-    { id: 1, name: 'Oficina Central', location: 'Buenos Aires' },
-    { id: 2, name: 'Sucursal Norte', location: 'Córdoba' },
-    { id: 3, name: 'Sucursal Sur', location: 'Mar del Plata' }
-  ];
-  
-  // Lista de proyectos
-  const projectsList = [
-    { id: 1, name: 'Proyecto Alpha', status: 'Activo' },
-    { id: 2, name: 'Proyecto Beta', status: 'Activo' },
-    { id: 3, name: 'Obra Nueva Centro', status: 'En Progreso' }
-  ];
+  // Cargar departamentos y sucursales
+  useEffect(() => {
+    const loadDestinations = async () => {
+      try {
+        // Cargar departamentos
+        const deptsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/departments`);
+        if (!deptsResponse.ok) throw new Error('Error al cargar departamentos');
+        const deptsData = await deptsResponse.json();
+        setDepartmentsList(deptsData);
+        
+        // Cargar sucursales
+        const branchesResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/branches`);
+        if (!branchesResponse.ok) throw new Error('Error al cargar sucursales');
+        const branchesData = await branchesResponse.json();
+        setBranchesList(branchesData);
+      } catch (error) {
+        console.error('Error al cargar destinos:', error);
+        showNotification('Error al cargar departamentos y sucursales', 'error');
+      }
+    };
+    
+    loadDestinations();
+  }, [showNotification]);
   
   // Estado para mostrar alerta cuando se busca notebook o celular
   const [showRedirectAlert, setShowRedirectAlert] = useState(false);
@@ -686,45 +669,82 @@ const InventoryOutForm = () => {
   });
   
   // Enviar formulario
-  const handleSubmit = (values, { setSubmitting, setErrors }) => {
-    // Verificar que se haya seleccionado un producto
-    if (!values.itemId) {
-      setErrors({ itemId: 'Debe seleccionar un producto del inventario' });
-      setSubmitting(false);
-      return;
-    }
-    
-    // Verificar cantidad
-    if (!values.quantity || values.quantity < 1) {
-      setErrors({ quantity: 'La cantidad es obligatoria y debe ser al menos 1' });
-      setSubmitting(false);
-      return;
-    }
-    
-    // Verificar fecha
-    if (!values.outputDate) {
-      setErrors({ outputDate: 'La fecha de salida es obligatoria' });
-      setSubmitting(false);
-      return;
-    }
-    
-    // Verificar destino
-    if (!values.destination.id) {
-      setErrors({ 'destination.id': 'Debe seleccionar un destino' });
-      setSubmitting(false);
-      return;
-    }
-    
-    console.log('Valores del formulario:', values);
-    
-    // En una implementación real, aquí enviaríamos los datos a la API
-    setTimeout(() => {
-      setSubmitting(false);
+  const handleSubmit = async (values, { setSubmitting, setErrors }) => {
+    try {
+      // Verificaciones de validación
+      if (!values.itemId) {
+        setErrors({ itemId: 'Debe seleccionar un producto del inventario' });
+        return;
+      }
       
-      // Mostrar un mensaje de éxito y redireccionar
-      alert('Salida de inventario registrada correctamente');
+      if (!values.quantity || values.quantity < 1) {
+        setErrors({ quantity: 'La cantidad es obligatoria y debe ser al menos 1' });
+        return;
+      }
+      
+      if (!values.outputDate) {
+        setErrors({ outputDate: 'La fecha de salida es obligatoria' });
+        return;
+      }
+      
+      if (!values.destination.id) {
+        setErrors({ 'destination.id': 'Debe seleccionar un destino' });
+        return;
+      }
+      
+      // Preparar datos para enviar a la API
+      const outData = {
+        productId: values.itemId,
+        quantity: values.quantity,
+        outputDate: values.outputDate,
+        notes: values.notes,
+        serialNumbers: values.serialNumbers,
+        destinationType: values.destination.type,
+        destinationId: values.destination.id
+      };
+      
+      // Enviar datos a la API
+      const response = await inventoryService.registerOut(outData);
+      
+      // Obtener nombre del producto para la notificación
+      const item = inventoryItems.find(i => i.id.toString() === values.itemId.toString());
+      const productName = item ? item.name : 'Producto';
+      
+      // Obtener nombre del destino
+      const destinationList = values.destination.type === 'department' ? departmentsList : branchesList;
+      const destination = destinationList.find(d => d.id.toString() === values.destination.id.toString());
+      const destinationName = destination ? destination.name : 'destino seleccionado';
+      
+      // Mostrar notificación de éxito
+      showNotification(
+        `Salida de ${values.quantity} unidades de ${productName} registrada para ${destinationName}`,
+        'success'
+      );
+      
+      // Actualizar inventario local
+      const updatedItems = inventoryItems.map(item => {
+        if (item.id.toString() === values.itemId.toString()) {
+          return {
+            ...item,
+            currentStock: item.currentStock - values.quantity,
+            serialNumbers: item.requiresSerial
+              ? item.serialNumbers.filter(s => !values.serialNumbers.includes(s))
+              : item.serialNumbers
+          };
+        }
+        return item;
+      });
+      
+      setInventoryItems(updatedItems);
+      
+      // Redireccionar
       navigate('/inventory');
-    }, 1000);
+    } catch (error) {
+      console.error('Error al registrar salida:', error);
+      showNotification('Error al registrar salida de inventario. Por favor, intente nuevamente.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
   
   if (loading) {

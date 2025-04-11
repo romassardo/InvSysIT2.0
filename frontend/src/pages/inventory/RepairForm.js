@@ -7,6 +7,7 @@ import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../context/NotificationContext';
+import { productService, repairService } from '../../services/api';
 
 const PageHeader = styled.div`
   display: flex;
@@ -165,44 +166,66 @@ const RepairForm = () => {
     priority: 'Normal'
   };
   
-  // Simular carga de datos
+  // Cargar datos reales desde la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockProviders = [
-      { id: 1, name: 'Servicio Técnico Dell' },
-      { id: 2, name: 'Servicio Técnico HP' },
-      { id: 3, name: 'Servicio Técnico Lenovo' },
-      { id: 4, name: 'iService' },
-      { id: 5, name: 'TecnoService' },
-      { id: 6, name: 'Reparaciones Internas' }
-    ];
-    
-    setProviders(mockProviders);
-    
-    // Si hay un ID, cargar datos del activo
-    if (id) {
-      // En una implementación real, estos datos vendrían de la API
-      setTimeout(() => {
-        // Datos simulados para una notebook
-        const mockAsset = {
-          id: parseInt(id),
-          name: 'Notebook Dell Latitude 7400',
-          serialNumber: 'DL7400-123456',
-          category: 'Computadoras',
-          subcategory: 'Notebooks',
-          status: 'En Stock',
-          location: 'Oficina Central',
-          warrantyUntil: '2026-12-10',
-          icon: 'laptop'
-        };
+    const fetchData = async () => {
+      try {
+        setLoading(true);
         
-        setAsset(mockAsset);
+        // Obtener lista de proveedores de servicios
+        const providersResponse = await repairService.getProviders();
+        if (providersResponse && providersResponse.data) {
+          setProviders(providersResponse.data);
+        }
+        
+        // Si hay un ID, cargar datos del activo
+        if (id) {
+          const assetResponse = await productService.getProductById(id);
+          if (assetResponse && assetResponse.data) {
+            const assetData = assetResponse.data;
+            
+            // Procesar categoría y subcategoría desde categoryPath si está disponible
+            let category = 'Otros';
+            let subcategory = '';
+            
+            if (assetData.categoryPath) {
+              const pathParts = assetData.categoryPath.split('/');
+              category = pathParts[0] || 'Otros';
+              subcategory = pathParts[1] || '';
+            }
+            
+            // Determinar el icono basado en la categoría
+            const icon = getCategoryIcon(category, subcategory);
+            
+            setAsset({
+              id: assetData.id,
+              name: assetData.name,
+              serialNumber: assetData.serialNumber || 'N/A',
+              category,
+              subcategory,
+              status: assetData.status || 'En Stock',
+              location: assetData.location || 'No especificada',
+              warrantyUntil: assetData.warrantyEnd || null,
+              icon
+            });
+          } else {
+            showNotification('No se pudo cargar la información del activo', 'error');
+            navigate('/inventory');
+          }
+        }
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+        showNotification(
+          'Error al cargar datos necesarios para el formulario', 
+          'error'
+        );
+      } finally {
         setLoading(false);
-      }, 800);
-    } else {
-      setLoading(false);
-    }
-  }, [id]);
+      }
+    };
+    
+    fetchData();
+  }, [id, navigate, showNotification]);
   
   // Validación del formulario
   const validationSchema = Yup.object().shape({
@@ -221,35 +244,46 @@ const RepairForm = () => {
   });
   
   // Función para deshacer el envío a reparación
-  const undoRepairSubmission = (data) => {
-    if (!data) return;
+  const undoRepairSubmission = async (data) => {
+    if (!data || !data.repairId) return;
     
-    // En una implementación real, aquí se realizaría la llamada a la API
-    // para cancelar el envío a reparación que acabamos de hacer
-    console.log('Cancelando envío a reparación:', data);
-    
-    // Mostrar notificación informativa
-    showNotification(
-      `Envío a reparación cancelado: ${data.assetName}`,
-      'info'
-    );
+    try {
+      // Llamar a la API para cancelar el envío a reparación
+      await repairService.cancelRepair(data.repairId);
+      
+      // Mostrar notificación informativa
+      showNotification(
+        `Envío a reparación cancelado: ${data.assetName}`,
+        'info'
+      );
+    } catch (error) {
+      console.error('Error al cancelar envío a reparación:', error);
+      showNotification(
+        'No se pudo cancelar el envío a reparación. Por favor, contacte al administrador.',
+        'error'
+      );
+    }
   };
   
   // Enviar formulario
-  const handleSubmit = (values, { setSubmitting }) => {
-    console.log('Valores del formulario:', values);
-    
-    // Obtener nombre del activo para la notificación
-    const assetName = asset ? asset.name : 'Activo #' + values.assetId;
-    
-    // En una implementación real, aquí enviaríamos los datos a la API
-    setTimeout(() => {
-      setSubmitting(false);
+  const handleSubmit = async (values, { setSubmitting }) => {
+    try {
+      // Obtener nombre del activo para la notificación
+      const assetName = asset ? asset.name : 'Activo #' + values.assetId;
+      
+      // Preparar datos para enviar a la API
+      const repairData = {
+        ...values,
+        sentDate: new Date().toISOString()
+      };
+      
+      // Enviar datos a la API
+      const response = await repairService.createRepair(repairData);
       
       // Datos del envío a reparación para potencialmente deshacer
       const submittedData = {
         ...values,
-        id: 'repair-' + Date.now(), // Simulando un ID generado por el servidor
+        repairId: response.data.id,
         assetName: assetName
       };
       
@@ -263,7 +297,15 @@ const RepairForm = () => {
       
       // Redirigir a la página de activos en reparación
       navigate('/inventory/in-repair');
-    }, 1000);
+    } catch (error) {
+      console.error('Error al enviar a reparación:', error);
+      showNotification(
+        'Error al registrar el envío a reparación. Por favor, inténtelo nuevamente.',
+        'error'
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
   
   // Determinar si el activo está en garantía

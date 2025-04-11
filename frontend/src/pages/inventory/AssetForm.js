@@ -7,6 +7,8 @@ import Icon from '../../components/ui/Icon';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { productService, categoryService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -103,10 +105,12 @@ const AssetForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { currentUser, isAuthenticated } = useAuth();
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
+  const [error, setError] = useState(null);
   const [initialValues, setInitialValues] = useState({
     // Información básica del producto en catálogo
     name: '',
@@ -138,79 +142,86 @@ const AssetForm = () => {
     }
   }, [isAuthenticated, currentUser, navigate]);
 
-  // Simular carga de categorías y catálogo de productos
+  // Cargar categorías y catálogo de productos de la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockCategories = [
-      { id: 1, name: 'Computadoras', subcategories: ['Desktops', 'Notebooks', 'Raspberry Pi'] },
-      { id: 2, name: 'Celulares', subcategories: [] },
-      { id: 3, name: 'Periféricos', subcategories: ['Teclados', 'Mouse', 'Kit Teclado/Mouse', 'Auriculares', 'Webcams', 'Monitores', 'Televisores'] },
-      { id: 4, name: 'Consumibles', subcategories: ['Cables', 'Pilas', 'Toner', 'Drum', 'Cargadores'] },
-      { id: 5, name: 'Componentes', subcategories: ['Memorias RAM', 'Discos Externos', 'Discos SSD/NVMe', 'Placas Sending', 'Placas de Video', 'Motherboards', 'Adaptadores USB Varios'] }
-    ];
-    
-    setCategories(mockCategories);
-    
-    // Simular carga de productos del catálogo
-    const mockCatalog = [
-      { id: 1, name: 'Notebook Dell Latitude 7400', category: 'Computadoras', subcategory: 'Notebooks', specs: { processor: 'Intel Core i7 10th Gen', ram: '16GB', storage: '512GB SSD', os: 'Windows 11 Pro' } },
-      { id: 2, name: 'iPhone 13 Pro', category: 'Celulares', specs: { storage: '256GB' } },
-      { id: 3, name: 'Monitor Samsung 24"', category: 'Periféricos', subcategory: 'Monitores' },
-      { id: 4, name: 'Teclado Logitech MX Keys', category: 'Periféricos', subcategory: 'Teclados' },
-      { id: 5, name: 'Cable HDMI 1.5m', category: 'Consumibles', subcategory: 'Cables' },
-      { id: 6, name: 'Toner HP 85A', category: 'Consumibles', subcategory: 'Toner' },
-      { id: 7, name: 'Desktop HP ProDesk 600', category: 'Computadoras', subcategory: 'Desktops', specs: { processor: 'Intel Core i5 9th Gen', ram: '8GB', storage: '256GB SSD', os: 'Windows 10 Pro' } },
-      { id: 8, name: 'Memoria RAM Kingston 8GB DDR4', category: 'Componentes', subcategory: 'Memorias RAM' }
-    ];
-    
-    setCatalogProducts(mockCatalog);
-    
-    // Si hay un ID, cargar datos del activo
-    if (id) {
-      // En una implementación real, estos datos vendrían de la API
-      setTimeout(() => {
-        // Datos simulados para una notebook
-        const mockAsset = {
-          id: parseInt(id),
-          name: 'Notebook Dell Latitude 7400',
-          serialNumber: 'DL7400-123456',
-          category: 'Computadoras',
-          subcategory: 'Notebooks',
-          status: 'En Stock',
-          location: 'Oficina Central',
-          manufacturer: 'Dell',
-          model: 'Latitude 7400',
-          purchaseDate: '2024-12-10',
-          warrantyUntil: '2026-12-10',
-          supplier: 'Dell Argentina',
-          purchasePrice: '1500',
-          currentValue: '1200',
-          notes: 'Equipo nuevo para reemplazo de equipos obsoletos',
-          specifications: {
-            processor: 'Intel Core i7 10th Gen',
-            ram: '16GB',
-            storage: '512GB SSD',
-            os: 'Windows 11 Pro'
-          },
-          encryptionPassword: 'DLBit-9876#43@1',
-          macAddress: '00:1A:2B:3C:4D:5E',
-          ipAddress: ''
-        };
+    const loadCategoriesAndProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
         
-        setInitialValues(mockAsset);
+        // Cargar categorías
+        const categoriesResponse = await categoryService.getAll();
         
-        // Actualizar subcategorías
-        const category = mockCategories.find(c => c.name === mockAsset.category);
-        if (category) {
-          setSubcategories(category.subcategories);
+        // Transformar las categorías al formato necesario para el formulario
+        const formattedCategories = categoriesResponse.data.map(category => {
+          // Extraer subcategorías - en la API podrían estar como hijos o como un array
+          let subcategories = [];
+          if (category.children && Array.isArray(category.children)) {
+            subcategories = category.children.map(child => child.name);
+          } else if (category.subcategories && Array.isArray(category.subcategories)) {
+            subcategories = category.subcategories;
+          }
+          
+          return {
+            id: category.id,
+            name: category.name,
+            subcategories: subcategories
+          };
+        });
+        
+        setCategories(formattedCategories);
+        
+        // Cargar productos del catálogo
+        const productsResponse = await productService.getAll();
+        setCatalogProducts(productsResponse.data);
+        
+        // Si hay un ID, cargar datos del activo
+        if (id) {
+          const productResponse = await productService.getById(id);
+          const product = productResponse.data;
+          
+          // Transformar los datos del producto al formato del formulario
+          const formattedProduct = {
+            id: product.id,
+            name: product.name,
+            productCode: product.productCode || '',
+            category: product.categoryPath ? product.categoryPath.split('/')[0] : '',
+            subcategory: product.categoryPath ? product.categoryPath.split('/').slice(1).join('/') : '',
+            manufacturer: product.manufacturer || '',
+            model: product.model || '',
+            supplier: product.supplier || '',
+            minStock: product.minimumThreshold || 1,
+            notes: product.notes || '',
+            specifications: product.specifications || {
+              processor: '',
+              ram: '',
+              storage: '',
+              os: ''
+            },
+            macAddress: product.macAddress || '',
+            ipAddress: product.ipAddress || '',
+            encryptionPassword: product.encryptionPassword || ''
+          };
+          
+          setInitialValues(formattedProduct);
+          
+          // Actualizar subcategorías basadas en la categoría del producto
+          const category = formattedCategories.find(c => c.name === formattedProduct.category);
+          if (category) {
+            setSubcategories(category.subcategories);
+          }
         }
-        
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+        setError('Error al cargar datos del catálogo. Por favor, intente nuevamente.');
+        showNotification('Error al cargar datos del catálogo', 'error');
+      } finally {
         setLoading(false);
-      }, 1000);
-    } else {
-      setLoading(false);
-    }
-  }, [id]);
+      }
+    };
+    
+    loadCategoriesAndProducts();
+  }, [id, showNotification]);
   
   // Manejar cambio de categoría
   const handleCategoryChange = (e, setFieldValue) => {
@@ -245,16 +256,57 @@ const AssetForm = () => {
   });
   
   // Enviar formulario
-  const handleSubmit = (values, { setSubmitting }) => {
-    console.log('Valores del formulario:', values);
-    
-    // En una implementación real, aquí enviaríamos los datos a la API
-    setTimeout(() => {
-      setSubmitting(false);
+  const handleSubmit = async (values, { setSubmitting }) => {
+    try {
+      // Prepara los datos para enviar a la API
+      const productData = {
+        name: values.name,
+        productCode: values.productCode,
+        categoryPath: values.subcategory 
+          ? `${values.category}/${values.subcategory}` 
+          : values.category,
+        manufacturer: values.manufacturer,
+        model: values.model,
+        supplier: values.supplier,
+        minimumThreshold: values.minStock,
+        specifications: values.specifications,
+        notes: values.notes,
+        trackSerial: values.category === 'Computadoras' || values.category === 'Celulares' || values.category === 'Periféricos'
+      };
+      
+      // Agregar campos específicos según categoría
+      if (values.category === 'Computadoras') {
+        productData.macAddress = values.macAddress;
+        productData.ipAddress = values.ipAddress;
+        
+        if (values.subcategory === 'Notebooks') {
+          productData.encryptionPassword = values.encryptionPassword;
+        }
+      }
+      
+      if (values.category === 'Celulares') {
+        productData.accountInfo = values.accountInfo;
+      }
+      
+      let response;
+      if (id) {
+        // Actualizar producto existente
+        response = await productService.update(id, productData);
+        showNotification('Producto actualizado correctamente', 'success');
+      } else {
+        // Crear nuevo producto
+        response = await productService.create(productData);
+        showNotification('Producto agregado al catálogo correctamente', 'success');
+      }
       
       // Redirigir a la página de detalle o listado
       navigate(id ? `/inventory/asset/${id}` : '/inventory');
-    }, 1000);
+    } catch (error) {
+      console.error('Error al guardar producto:', error);
+      showNotification('Error al guardar el producto. Por favor, intente nuevamente.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
   
   // Verificar autenticación y permisos
@@ -295,6 +347,29 @@ const AssetForm = () => {
             padding: 'var(--spacing-xl)' 
           }}>
             <Icon name="Loader" size={36} />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div>
+        <PageHeader>
+          <PageTitle>Error</PageTitle>
+        </PageHeader>
+        
+        <Card>
+          <div style={{ padding: 'var(--spacing-lg)' }}>
+            <p>{error}</p>
+            <Button 
+              variant="primary" 
+              onClick={() => window.location.reload()}
+              style={{ marginTop: 'var(--spacing-md)' }}
+            >
+              Reintentar
+            </Button>
           </div>
         </Card>
       </div>

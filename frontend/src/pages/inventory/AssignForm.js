@@ -7,6 +7,7 @@ import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useNotification } from '../../context/NotificationContext';
+import { productService, userService, inventoryService, formService } from '../../services/api';
 
 const PageHeader = styled.div`
   display: flex;
@@ -186,94 +187,96 @@ const AssignForm = () => {
   // Estado para almacenar los números de serie seleccionados
   const [selectedSerial, setSelectedSerial] = useState('');
   
-  // Simular carga de datos
+  // Cargar datos reales desde la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockEmployees = [
-      { id: 1, name: 'Juan Pérez', department: 'Desarrollo', email: 'juan.perez@empresa.com' },
-      { id: 2, name: 'María López', department: 'Marketing', email: 'maria.lopez@empresa.com' },
-      { id: 3, name: 'Carlos González', department: 'Administración', email: 'carlos.gonzalez@empresa.com' },
-      { id: 4, name: 'Ana Martínez', department: 'Recursos Humanos', email: 'ana.martinez@empresa.com' },
-      { id: 5, name: 'Pedro Sánchez', department: 'Ventas', email: 'pedro.sanchez@empresa.com' }
-    ];
-    
-    // Activos asignables (solo notebooks y celulares)
-    const mockAssets = [
-      { 
-        id: 101, 
-        name: 'Notebook Dell Latitude 7400', 
-        category: 'Computadoras', 
-        subcategory: 'Notebooks', 
-        icon: 'laptop', 
-        requiresSerial: true,
-        currentStock: 3,
-        serialNumbers: ['DL7400-123456', 'DL7400-123457', 'DL7400-123458'],
-        requiresAdditionalInfo: true,
-        additionalInfoFields: [
-          { name: 'encryptionPass', label: 'encryption pass', type: 'password' }
-        ]
-      },
-      { 
-        id: 102, 
-        name: 'iPhone 13 Pro', 
-        category: 'Celulares', 
-        subcategory: '', 
-        icon: 'smartphone', 
-        requiresSerial: true,
-        currentStock: 2,
-        serialNumbers: ['IP13-456789', 'IP13-456790'],
-        requiresAdditionalInfo: true,
-        additionalInfoFields: [
-          { name: 'phoneNumber', label: 'Número de Teléfono', type: 'text' },
-          { name: 'gmailAccount', label: 'Cuenta Gmail', type: 'email' },
-          { name: 'gmailPassword', label: 'Contraseña Gmail', type: 'password' },
-          { name: 'whatsappVerification', label: 'Código de Verificación WhatsApp', type: 'text' }
-        ]
-      }
-    ];
-    
-    setAvailableAssets(mockAssets);
-    
-    const mockAreas = [
-      { id: 1, name: 'Sala de Reuniones', location: 'Oficina Central' },
-      { id: 2, name: 'Recepción', location: 'Oficina Central' },
-      { id: 3, name: 'Sala de Capacitación', location: 'Sucursal Norte' },
-      { id: 4, name: 'Lobby', location: 'Sucursal Sur' }
-    ];
-    
-    const mockLocations = [
-      { id: 1, name: 'Oficina Central' },
-      { id: 2, name: 'Sucursal Norte' },
-      { id: 3, name: 'Sucursal Sur' }
-    ];
-    
-    setEmployees(mockEmployees);
-    setAreas(mockAreas);
-    setLocations(mockLocations);
-    
-    // Si hay un ID, cargar datos del activo
-    if (id) {
-      // En una implementación real, estos datos vendrían de la API
-      setTimeout(() => {
-        // Datos simulados para una notebook disponible
-        const mockAsset = {
-          id: parseInt(id),
-          name: 'Notebook Dell Latitude 7400',
-          serialNumber: 'DL7400-123456',
-          category: 'Computadoras',
-          subcategory: 'Notebooks',
-          status: 'En Stock',
-          location: 'Oficina Central',
-          icon: 'laptop'
-        };
+    const loadData = async () => {
+      try {
+        setLoading(true);
         
-        setAsset(mockAsset);
+        // Cargar formulario de asignación (configuración específica)
+        const formResponse = await formService.getAssignForm();
+        
+        // Cargar empleados (usuarios)
+        const usersResponse = await userService.getAll();
+        setEmployees(usersResponse.data);
+        
+        // Cargar áreas (departamentos y salas)
+        const departmentsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/departments`);
+        const departmentsData = await departmentsResponse.json();
+        setAreas(departmentsData);
+        
+        // Cargar ubicaciones (sucursales)
+        const branchesResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/branches`);
+        const branchesData = await branchesResponse.json();
+        setLocations(branchesData);
+        
+        // Cargar activos asignables (solo notebooks y celulares)
+        const assetsResponse = await productService.getAll();
+        
+        // Filtrar solo notebooks y celulares que tengan stock disponible
+        const assignableAssets = assetsResponse.data.filter(product => {
+          const isNotebookOrPhone = 
+            (product.categoryPath && 
+             (product.categoryPath.includes('Computadoras/Notebooks') || 
+              product.categoryPath.includes('Celulares')));
+          
+          return isNotebookOrPhone && product.currentStock > 0 && product.type === 'asset';
+        });
+        
+        // Mapear los productos para añadir información adicional requerida
+        const mappedAssets = await Promise.all(assignableAssets.map(async (product) => {
+          // Obtener números de serie disponibles para este producto
+          const serialsResponse = await productService.getById(product.id);
+          const serialNumbers = serialsResponse.data.availableSerialNumbers || [];
+          
+          // Configurar campos de información adicional según el tipo de producto
+          let additionalInfoFields = [];
+          
+          if (product.categoryPath.includes('Computadoras/Notebooks')) {
+            additionalInfoFields = [
+              { name: 'encryptionPass', label: 'encryption pass', type: 'password' }
+            ];
+          } else if (product.categoryPath.includes('Celulares')) {
+            additionalInfoFields = [
+              { name: 'phoneNumber', label: 'Número de Teléfono', type: 'text' },
+              { name: 'gmailAccount', label: 'Cuenta Gmail', type: 'email' },
+              { name: 'gmailPassword', label: 'Contraseña Gmail', type: 'password' },
+              { name: 'whatsappVerification', label: 'Código de Verificación WhatsApp', type: 'text' }
+            ];
+          }
+          
+          return {
+            ...product,
+            requiresSerial: true, // Notebooks y celulares siempre requieren serie
+            serialNumbers: serialNumbers,
+            requiresAdditionalInfo: additionalInfoFields.length > 0,
+            additionalInfoFields: additionalInfoFields,
+            icon: product.categoryPath.includes('Notebooks') ? 'laptop' : 'smartphone'
+          };
+        }));
+        
+        setAvailableAssets(mappedAssets);
+        
+        // Si hay un ID, cargar datos del activo específico
+        if (id) {
+          const assetResponse = await productService.getById(id);
+          if (assetResponse.data) {
+            setAsset({
+              ...assetResponse.data,
+              icon: assetResponse.data.categoryPath.includes('Notebooks') ? 'laptop' : 'smartphone'
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+        showNotification('Error al cargar los datos. Por favor, intente nuevamente.', 'error');
+      } finally {
         setLoading(false);
-      }, 800);
-    } else {
-      setLoading(false);
-    }
-  }, [id]);
+      }
+    };
+    
+    loadData();
+  }, [id, showNotification]);
   
   // Validación del formulario
   const validationSchema = Yup.object().shape({
@@ -318,18 +321,34 @@ const AssignForm = () => {
   });
   
   // Función para deshacer la asignación de un activo
-  const undoAssignment = (data) => {
-    if (!data) return;
+  const undoAssignment = async (data) => {
+    if (!data || !data.id) return;
     
-    // En una implementación real, aquí se realizaría la llamada a la API
-    // para cancelar la asignación que acabamos de hacer
-    console.log('Cancelando asignación de activo:', data);
-    
-    // Mostrar notificación informativa
-    showNotification(
-      `Asignación cancelada: ${data.assetName}`,
-      'info'
-    );
+    try {
+      // Llamar a la API para cancelar la asignación
+      await inventoryService.undoAssignment(data.id);
+      
+      // Mostrar notificación informativa
+      showNotification(
+        `Asignación cancelada: ${data.assetName}`,
+        'info'
+      );
+      
+      // Recargar los activos disponibles para actualizar el stock
+      const assetsResponse = await productService.getAll();
+      const assignableAssets = assetsResponse.data.filter(product => {
+        return (product.categoryPath && 
+          (product.categoryPath.includes('Computadoras/Notebooks') || 
+           product.categoryPath.includes('Celulares'))) && 
+          product.currentStock > 0 && 
+          product.type === 'asset';
+      });
+      
+      setAvailableAssets(assignableAssets);
+    } catch (error) {
+      console.error('Error al cancelar asignación:', error);
+      showNotification('Error al cancelar la asignación. Por favor, intente manualmente.', 'error');
+    }
   };
   
   // Manejar cambio de selección de activo
@@ -357,32 +376,43 @@ const AssignForm = () => {
   };
 
   // Enviar formulario
-  const handleSubmit = (values, { setSubmitting }) => {
-    console.log('Valores del formulario:', values);
-    
-    // Obtener el activo seleccionado
-    const selectedAsset = availableAssets.find(a => a.id.toString() === values.assetId);
-    
-    // Obtener nombre del activo para la notificación
-    const assetName = selectedAsset ? selectedAsset.name : 'Activo #' + values.assetId;
-    
-    // Obtener nombre del asignado (empleado o área)
-    let assigneeName = '';
-    if (values.assigneeType === 'employee') {
-      const employee = employees.find(e => e.id.toString() === values.employeeId);
-      assigneeName = employee ? employee.name : 'Empleado #' + values.employeeId;
-    } else {
-      const area = areas.find(a => a.id.toString() === values.areaId);
-      assigneeName = area ? area.name : 'Área #' + values.areaId;
-    }
-    
-    // En una implementación real, aquí enviaríamos los datos a la API
-    setTimeout(() => {
-      setSubmitting(false);
+  const handleSubmit = async (values, { setSubmitting }) => {
+    try {
+      // Obtener el activo seleccionado
+      const selectedAsset = availableAssets.find(a => a.id.toString() === values.assetId);
       
-      // NUEVO: Actualizar el stock (eliminar el número de serie usado)
+      // Obtener nombre del activo para la notificación
+      const assetName = selectedAsset ? selectedAsset.name : 'Activo #' + values.assetId;
+      
+      // Obtener nombre del asignado (empleado o área)
+      let assigneeName = '';
+      if (values.assigneeType === 'employee') {
+        const employee = employees.find(e => e.id.toString() === values.employeeId);
+        assigneeName = employee ? employee.name : 'Empleado #' + values.employeeId;
+      } else {
+        const area = areas.find(a => a.id.toString() === values.areaId);
+        assigneeName = area ? area.name : 'Área #' + values.areaId;
+      }
+      
+      // Preparar datos para la API
+      const assignmentData = {
+        productId: values.assetId,
+        serialNumber: values.serialNumber,
+        assigneeType: values.assigneeType,
+        assigneeId: values.assigneeType === 'employee' ? values.employeeId : values.areaId,
+        location: values.location,
+        assignmentDate: values.assignmentDate,
+        expectedReturnDate: values.expectedReturnDate || null,
+        purpose: values.purpose,
+        notes: values.notes,
+        additionalInfo: values.additionalInfo
+      };
+      
+      // Enviar los datos a la API
+      const response = await inventoryService.registerAssetAssignment(assignmentData);
+      
+      // Actualizar localmente los activos disponibles para reflejar el cambio
       if (selectedAsset && selectedAsset.requiresSerial) {
-        // Simulamos la actualización del stock reduciendo los números de serie disponibles
         const updatedAssets = availableAssets.map(asset => {
           if (asset.id === selectedAsset.id) {
             return {
@@ -399,8 +429,7 @@ const AssignForm = () => {
       
       // Datos de la asignación para potencialmente deshacer
       const submittedData = {
-        ...values,
-        id: 'assignment-' + Date.now(), // Simulando un ID generado por el servidor
+        id: response.data.id,
         assetName: assetName,
         assigneeName: assigneeName,
         serialNumber: values.serialNumber
@@ -416,7 +445,12 @@ const AssignForm = () => {
       
       // Redirigir a la página de activos asignados
       navigate('/inventory/assigned');
-    }, 1000);
+    } catch (error) {
+      console.error('Error al registrar asignación:', error);
+      showNotification('Error al registrar la asignación. Por favor, intente nuevamente.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
   
   // Obtener icono según categoría

@@ -5,7 +5,7 @@ npm-debug.log
 logs/
 
 # Archivos de entorno
-.env
+# .env (Incluido en el repositorio para facilitar la configuración)
 .env.local
 .env.development.local
 .env.test.local

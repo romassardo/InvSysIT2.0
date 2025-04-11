@@ -5,6 +5,8 @@ import Icon from '../../components/ui/Icon';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { productService, categoryService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -151,8 +153,12 @@ const PaginationButtons = styled.div`
 `;
 
 const InventoryList = () => {
+  const { showNotification } = useNotification();
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
     category: '',
@@ -168,7 +174,22 @@ const InventoryList = () => {
     total: 0
   });
   
-  // Simulación de carga de datos
+  // Cargar categorías disponibles
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await categoryService.getAll();
+        if (response && response.data) {
+          setCategories(response.data);
+        }
+      } catch (error) {
+        console.error('Error al cargar categorías:', error);
+      }
+    };
+    
+    fetchCategories();
+  }, []);
+  
   // Efecto para cargar las subcategorías cuando cambia la categoría seleccionada
   useEffect(() => {
     if (filters.category) {
@@ -176,111 +197,82 @@ const InventoryList = () => {
     }
   }, [filters.category]);
   
+  // Cargar inventario desde la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockAssets = [
-      {
-        id: 1,
-        name: 'Notebook Dell Latitude 7400',
-        serialNumber: 'DL7400-123456',
-        category: 'Computadoras',
-        subcategory: 'Notebooks',
-        status: 'Asignado',
-        assignedTo: 'Juan Pérez',
-        location: 'Oficina Central',
-        icon: 'Package' // Reemplazado de 'laptop' que no existe en react-feather
-      },
-      {
-        id: 2,
-        name: 'Monitor Samsung 24"',
-        serialNumber: 'SM24-987654',
-        category: 'Periféricos',
-        subcategory: 'Monitores',
-        status: 'En Stock',
-        assignedTo: null,
-        location: 'Almacén IT',
-        icon: 'monitor'
-      },
-      {
-        id: 3,
-        name: 'iPhone 13 Pro',
-        serialNumber: 'IP13-456789',
-        category: 'Celulares',
-        subcategory: '',
-        status: 'Asignado',
-        assignedTo: 'María López',
-        location: 'Sucursal Norte',
-        icon: 'Smartphone' // Nombre correcto en PascalCase
-      },
-      {
-        id: 4,
-        name: 'Teclado Logitech MX Keys',
-        serialNumber: 'LG-MXK-001',
-        category: 'Periféricos',
-        subcategory: 'Teclados',
-        status: 'En Reparación',
-        assignedTo: null,
-        location: 'Servicio Técnico',
-        icon: 'Type' // Reemplazado de 'keyboard' que no existe en react-feather
-      },
-      {
-        id: 5,
-        name: 'Cable HDMI 1.5m',
-        serialNumber: null,
-        category: 'Consumibles',
-        subcategory: 'Cables',
-        status: 'En Stock',
-        quantity: 15,
-        assignedTo: null,
-        location: 'Almacén IT',
-        icon: 'paperclip'
-      },
-      {
-        id: 6,
-        name: 'Mouse Wireless HP',
-        serialNumber: 'HP-WM-123',
-        category: 'Periféricos',
-        subcategory: 'Mouse',
-        status: 'En Stock',
-        assignedTo: null,
-        location: 'Oficina Central',
-        icon: 'MousePointer' // Corregido a PascalCase
-      },
-      {
-        id: 7,
-        name: 'Desktop HP ProDesk 600',
-        serialNumber: 'HP600-789456',
-        category: 'Computadoras',
-        subcategory: 'Desktops',
-        status: 'En Stock',
-        assignedTo: null,
-        location: 'Almacén IT',
-        icon: 'cpu'
-      },
-      {
-        id: 8,
-        name: 'Toner HP 85A',
-        serialNumber: null,
-        category: 'Consumibles',
-        subcategory: 'Toner',
-        status: 'Stock Bajo',
-        quantity: 2,
-        assignedTo: null,
-        location: 'Almacén IT',
-        icon: 'box'
+    const fetchInventory = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Construir los parámetros de consulta para la API
+        const queryParams = {};
+        
+        if (filters.search) queryParams.search = filters.search;
+        if (filters.category) queryParams.category = filters.category;
+        if (filters.subcategory) queryParams.subcategory = filters.subcategory;
+        if (filters.status) queryParams.status = filters.status;
+        if (filters.location) queryParams.location = filters.location;
+        
+        // Agregar parámetros de paginación
+        queryParams.page = pagination.page;
+        queryParams.limit = pagination.limit;
+        
+        // Obtener los productos del inventario
+        const response = await productService.getAllProducts(queryParams);
+        
+        if (response && response.data) {
+          // Procesar los datos recibidos y agregar iconos según la categoría
+          const processedAssets = response.data.map(item => {
+            // Determinar el icono según la categoría y subcategoría
+            let icon = 'Package';
+            const category = (item.category || '').toLowerCase();
+            const subcategory = (item.subcategory || '').toLowerCase();
+            
+            if (category.includes('computadora')) {
+              icon = subcategory.includes('notebook') ? 'Laptop' : 'Cpu';
+            } else if (category.includes('celular')) {
+              icon = 'Smartphone';
+            } else if (category.includes('periférico')) {
+              if (subcategory.includes('monitor')) icon = 'Monitor';
+              else if (subcategory.includes('teclado')) icon = 'Type';
+              else if (subcategory.includes('mouse')) icon = 'MousePointer';
+              else if (subcategory.includes('auricular')) icon = 'Headphones';
+            } else if (category.includes('consumible')) {
+              if (subcategory.includes('cable')) icon = 'Paperclip';
+              else if (subcategory.includes('toner')) icon = 'Printer';
+              else icon = 'Box';
+            }
+            
+            // Extraer ubicaciones únicas para el filtro
+            if (item.location && !locations.includes(item.location)) {
+              setLocations(prev => [...prev, item.location]);
+            }
+            
+            return {
+              ...item,
+              icon
+            };
+          });
+          
+          setAssets(processedAssets);
+          setPagination(prev => ({
+            ...prev,
+            total: response.headers['x-total-count'] || processedAssets.length
+          }));
+        } else {
+          throw new Error('Formato de respuesta inválido');
+        }
+      } catch (error) {
+        console.error('Error al cargar inventario:', error);
+        setError('Error al cargar el inventario. Por favor, intente nuevamente.');
+        showNotification('Error al cargar el inventario', 'error');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
     
-    setTimeout(() => {
-      setAssets(mockAssets);
-      setPagination({
-        page: 1,
-        limit: 10,
-        total: mockAssets.length
-      });
-      setLoading(false);
-    }, 800);
-  }, []);
+    fetchInventory();
+  }, [filters, pagination.page, pagination.limit, showNotification]);
   
   // Manejar cambios en filtros
   const handleFilterChange = (e) => {
@@ -302,28 +294,31 @@ const InventoryList = () => {
         [name]: value
       }));
     }
-    // En una implementación real, aquí haríamos una llamada a la API con los nuevos filtros
+    
+    // Resetear la paginación cuando cambian los filtros
+    setPagination(prev => ({
+      ...prev,
+      page: 1
+    }));
   };
   
   // Actualizar subcategorías disponibles cuando cambia la categoría
-  const updateAvailableSubcategories = (category) => {
+  const updateAvailableSubcategories = async (category) => {
     if (!category) {
       setAvailableSubcategories([]);
       return;
     }
     
-    // En una implementación real, estos datos vendrían de la API
-    const subcategoriesMap = {
-      'Computadoras': ['Notebooks', 'Desktops', 'Raspberry Pi'],
-      'Periféricos': ['Teclados', 'Mouse', 'Kit Teclado/Mouse', 'Auriculares', 'Webcams', 'Monitores', 'Televisores'],
-      'Consumibles': ['Cables', 'Pilas', 'Toner', 'Drum', 'Cargadores'],
-      'Componentes': ['Memorias RAM', 'Discos Externos', 'Discos SSD/NVMe', 'Placas Sending', 'Placas de Video', 'Motherboards', 'Adaptadores USB Varios']
-    };
-    
-    // Asegurate de que las subcategorías se establezcan correctamente
-    const subcategories = subcategoriesMap[category] || [];
-    console.log(`Subcategorías para ${category}:`, subcategories);
-    setAvailableSubcategories(subcategories);
+    try {
+      // Obtener subcategorías de la API
+      const response = await categoryService.getSubcategories(category);
+      if (response && response.data) {
+        setAvailableSubcategories(response.data);
+      }
+    } catch (error) {
+      console.error(`Error al cargar subcategorías para ${category}:`, error);
+      setAvailableSubcategories([]);
+    }
   };
   
   // Filtrar los activos según los criterios de búsqueda y filtros
@@ -378,7 +373,7 @@ const InventoryList = () => {
       ...prev,
       page: newPage
     }));
-    // En una implementación real, aquí haríamos una llamada a la API para obtener la nueva página
+    // La llamada a la API se realiza automáticamente en el useEffect que observa pagination.page
   };
   
   return (
@@ -434,11 +429,9 @@ const InventoryList = () => {
           onChange={handleFilterChange}
         >
           <option value="">Todas las Categorías</option>
-          <option value="Computadoras">Computadoras</option>
-          <option value="Celulares">Celulares</option>
-          <option value="Periféricos">Periféricos</option>
-          <option value="Consumibles">Consumibles</option>
-          <option value="Componentes">Componentes</option>
+          {categories.map((category, index) => (
+            <option key={index} value={category.name}>{category.name}</option>
+          ))}
         </FilterSelect>
         
         {availableSubcategories.length > 0 && (
@@ -472,10 +465,9 @@ const InventoryList = () => {
           onChange={handleFilterChange}
         >
           <option value="">Todas las Ubicaciones</option>
-          <option value="Almacén IT">Almacén IT</option>
-          <option value="Oficina Central">Oficina Central</option>
-          <option value="Sucursal Norte">Sucursal Norte</option>
-          <option value="Servicio Técnico">Servicio Técnico</option>
+          {locations.map((location, index) => (
+            <option key={index} value={location}>{location}</option>
+          ))}
         </FilterSelect>
       </FilterBar>
       
@@ -488,6 +480,22 @@ const InventoryList = () => {
           }}>
             <Icon name="Loader" size={36} />
             <p style={{ marginTop: 'var(--spacing-md)' }}>Cargando inventario...</p>
+          </div>
+        ) : error ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: 'var(--spacing-xl)',
+            color: 'var(--danger)'
+          }}>
+            <Icon name="AlertTriangle" size={36} />
+            <p style={{ marginTop: 'var(--spacing-md)' }}>{error}</p>
+            <Button 
+              variant="primary" 
+              onClick={() => window.location.reload()}
+              style={{ marginTop: 'var(--spacing-md)' }}
+            >
+              Reintentar
+            </Button>
           </div>
         ) : (
           <>

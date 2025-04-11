@@ -163,6 +163,32 @@ class NotificationController {
     }
 
     /**
+     * Obtener notificaciones por usuario específico (solo para administradores)
+     * @param {Object} req - Request de Express
+     * @param {Object} res - Response de Express
+     */
+    static async getByUser(req, res) {
+        try {
+            const { userId } = req.params;
+            
+            // Validar que el usuario existe
+            const notifications = await Notification.getByUser(userId);
+            
+            return res.json({
+                status: 'success',
+                data: notifications
+            });
+        } catch (error) {
+            logger.error(`Error al obtener notificaciones por usuario: ${error.message}`);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Error al obtener notificaciones',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
+            });
+        }
+    }
+
+    /**
      * Eliminar notificaciones antiguas (solo para administradores)
      * @param {Object} req - Request de Express
      * @param {Object} res - Response de Express

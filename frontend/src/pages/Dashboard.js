@@ -6,6 +6,7 @@ import StatCard from '../components/ui/StatCard';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Icon from '../components/ui/Icon';
+import { productService, inventoryService, reportService, repairService } from '../services/api';
 
 const PageTitle = styled.h1`
   font-size: 1.8rem;
@@ -122,101 +123,140 @@ const Dashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [lowStockItems, setLowStockItems] = useState([]);
   
-  // Simulación de carga de datos
+  const [loading, setLoading] = useState({
+    stats: true,
+    activity: true,
+    lowStock: true
+  });
+  
+  const [error, setError] = useState({
+    stats: null,
+    activity: null,
+    lowStock: null
+  });
+  
+  // Carga de datos desde la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    
-    // Datos simulados para estadísticas
-    setStatsData({
-      totalAssets: 345,
-      assignedAssets: 187,
-      inRepair: 8,
-      lowStock: 5
-    });
-    
-    // Datos simulados para actividad reciente
-    setRecentActivity([
-      {
-        id: 1,
-        type: 'assignment',
-        assetName: 'Notebook Dell Latitude 7400',
-        assetType: 'Computadoras',
-        assetIcon: 'Package', // Mejor alternativa para laptop que no se confunda con Monitor
-        assignedTo: 'Juan Pérez',
-        location: 'Oficina Central',
-        timestamp: '2025-04-04T14:22:10Z',
-        user: 'Admin'
-      },
-      {
-        id: 2,
-        type: 'repair',
-        assetName: 'Monitor Samsung 24"',
-        assetType: 'Periféricos',
-        assetIcon: 'monitor',
-        repairReason: 'Falla en encendido',
-        timestamp: '2025-04-03T10:30:45Z',
-        user: 'Soporte1'
-      },
-      {
-        id: 3,
-        type: 'entry',
-        assetName: 'Teclado Logitech MX Keys',
-        assetType: 'Periféricos',
-        assetIcon: 'Type', // Reemplazado de 'keyboard' que no existe en react-feather
-        quantity: 5,
-        timestamp: '2025-04-02T16:15:22Z',
-        user: 'Admin'
-      },
-      {
-        id: 4,
-        type: 'return',
-        assetName: 'iPhone 13 Pro',
-        assetType: 'Celulares',
-        assetIcon: 'Smartphone', // Nombre correcto en PascalCase
-        previousUser: 'María López',
-        timestamp: '2025-04-01T11:05:18Z',
-        user: 'Soporte2'
+    // Función para cargar estadísticas
+    const loadStats = async () => {
+      try {
+        setLoading(prev => ({ ...prev, stats: true }));
+        
+        // Cargar conteo total de activos
+        const productResponse = await productService.getByType('asset');
+        const totalAssets = productResponse.data.length;
+        
+        // Cargar activos asignados
+        const assignedResponse = await inventoryService.getAllMovements();
+        const assignedAssets = assignedResponse.data.filter(m => 
+          m.type === 'assignment' && !m.isReturned
+        ).length;
+        
+        // Cargar equipos en reparación
+        const repairResponse = await repairService.getByStatus('in_progress');
+        const inRepair = repairResponse.data.length;
+        
+        // Cargar reporte de stock bajo
+        const lowStockResponse = await reportService.lowStock();
+        const lowStock = lowStockResponse.data.length;
+        
+        setStatsData({
+          totalAssets,
+          assignedAssets,
+          inRepair,
+          lowStock
+        });
+        
+        setError(prev => ({ ...prev, stats: null }));
+      } catch (err) {
+        console.error('Error loading stats:', err);
+        setError(prev => ({ ...prev, stats: 'Error al cargar estadísticas' }));
+      } finally {
+        setLoading(prev => ({ ...prev, stats: false }));
       }
-    ]);
+    };
     
-    // Datos simulados para items con stock bajo
-    setLowStockItems([
-      {
-        id: 1,
-        name: 'Toner HP 85A',
-        category: 'Consumibles',
-        currentStock: 2,
-        minimumThreshold: 5
-      },
-      {
-        id: 2,
-        name: 'Cargador Notebook Dell',
-        category: 'Consumibles',
-        currentStock: 1,
-        minimumThreshold: 3
-      },
-      {
-        id: 3,
-        name: 'Drum Unidad de Imagen Lexmark',
-        category: 'Consumibles',
-        currentStock: 0,
-        minimumThreshold: 2
-      },
-      {
-        id: 4,
-        name: 'Mouse Wireless Logitech',
-        category: 'Periféricos',
-        currentStock: 3,
-        minimumThreshold: 8
-      },
-      {
-        id: 5,
-        name: 'Cable HDMI 1.5m',
-        category: 'Consumibles',
-        currentStock: 4,
-        minimumThreshold: 10
+    // Función para cargar actividad reciente
+    const loadRecentActivity = async () => {
+      try {
+        setLoading(prev => ({ ...prev, activity: true }));
+        
+        const response = await inventoryService.getAllMovements();
+        // Ordenar por fecha más reciente
+        const sortedMovements = response.data
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          .slice(0, 4); // Solo mostrar los 4 más recientes
+        
+        // Mapear respuesta de API al formato requerido por el componente
+        const formattedActivity = sortedMovements.map(movement => {
+          const activityType = movement.type === 'assignment' ? 'assignment' :
+                              movement.type === 'repair' ? 'repair' :
+                              movement.type === 'entry' ? 'entry' :
+                              movement.type === 'return' ? 'return' : 'other';
+          
+          // Determinar el icono según el tipo de activo
+          const assetIcon = 
+            movement.product?.categoryPath?.includes('Computadoras') ? 'Package' :
+            movement.product?.categoryPath?.includes('Monitores') ? 'Monitor' :
+            movement.product?.categoryPath?.includes('Periféricos') && movement.product?.name?.toLowerCase().includes('teclado') ? 'Type' :
+            movement.product?.categoryPath?.includes('Celulares') ? 'Smartphone' : 'Box';
+          
+          return {
+            id: movement.id,
+            type: activityType,
+            assetName: movement.product?.name || 'Producto no especificado',
+            assetType: movement.product?.categoryPath?.split('/')?.pop() || 'Otros',
+            assetIcon: assetIcon,
+            assignedTo: movement.assignedTo?.name || '',
+            location: movement.destinationBranch || movement.destinationDepartment || '',
+            timestamp: movement.timestamp,
+            user: movement.user?.name || 'Sistema',
+            quantity: movement.quantity,
+            repairReason: movement.notes,
+            previousUser: movement.previousAssignee?.name || ''
+          };
+        });
+        
+        setRecentActivity(formattedActivity);
+        setError(prev => ({ ...prev, activity: null }));
+      } catch (err) {
+        console.error('Error loading activity:', err);
+        setError(prev => ({ ...prev, activity: 'Error al cargar actividad reciente' }));
+      } finally {
+        setLoading(prev => ({ ...prev, activity: false }));
       }
-    ]);
+    };
+    
+    // Función para cargar items con stock bajo
+    const loadLowStockItems = async () => {
+      try {
+        setLoading(prev => ({ ...prev, lowStock: true }));
+        
+        const response = await reportService.lowStock();
+        
+        // Mapear respuesta de API al formato requerido por el componente
+        const formattedItems = response.data.map(item => ({
+          id: item.id,
+          name: item.name,
+          category: item.categoryPath ? item.categoryPath.split('/').pop() : 'Otros',
+          currentStock: item.currentStock,
+          minimumThreshold: item.minimumThreshold
+        }));
+        
+        setLowStockItems(formattedItems);
+        setError(prev => ({ ...prev, lowStock: null }));
+      } catch (err) {
+        console.error('Error loading low stock items:', err);
+        setError(prev => ({ ...prev, lowStock: 'Error al cargar items con stock bajo' }));
+      } finally {
+        setLoading(prev => ({ ...prev, lowStock: false }));
+      }
+    };
+    
+    // Cargar todos los datos
+    loadStats();
+    loadRecentActivity();
+    loadLowStockItems();
   }, []);
   
   // Función para formatear fecha
@@ -292,10 +332,63 @@ const Dashboard = () => {
         <Card 
           title="Actividad Reciente" 
           actions={
-            <Button variant="outline" icon="RefreshCw" iconPosition="left">
+            <Button 
+              variant="outline" 
+              icon="RefreshCw" 
+              iconPosition="left"
+              onClick={() => {
+                setLoading(prev => ({ ...prev, activity: true }));
+                inventoryService.getAllMovements()
+                  .then(response => {
+                    const sortedMovements = response.data
+                      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                      .slice(0, 4);
+                      
+                    const formattedActivity = sortedMovements.map(movement => {
+                      const activityType = movement.type === 'assignment' ? 'assignment' :
+                                          movement.type === 'repair' ? 'repair' :
+                                          movement.type === 'entry' ? 'entry' :
+                                          movement.type === 'return' ? 'return' : 'other';
+                      
+                      const assetIcon = 
+                        movement.product?.categoryPath?.includes('Computadoras') ? 'Package' :
+                        movement.product?.categoryPath?.includes('Monitores') ? 'Monitor' :
+                        movement.product?.categoryPath?.includes('Periféricos') && movement.product?.name?.toLowerCase().includes('teclado') ? 'Type' :
+                        movement.product?.categoryPath?.includes('Celulares') ? 'Smartphone' : 'Box';
+                      
+                      return {
+                        id: movement.id,
+                        type: activityType,
+                        assetName: movement.product?.name || 'Producto no especificado',
+                        assetType: movement.product?.categoryPath?.split('/')?.pop() || 'Otros',
+                        assetIcon: assetIcon,
+                        assignedTo: movement.assignedTo?.name || '',
+                        location: movement.destinationBranch || movement.destinationDepartment || '',
+                        timestamp: movement.timestamp,
+                        user: movement.user?.name || 'Sistema',
+                        quantity: movement.quantity,
+                        repairReason: movement.notes,
+                        previousUser: movement.previousAssignee?.name || ''
+                      };
+                    });
+                    
+                    setRecentActivity(formattedActivity);
+                    setError(prev => ({ ...prev, activity: null }));
+                  })
+                  .catch(err => {
+                    console.error('Error refreshing activity:', err);
+                    setError(prev => ({ ...prev, activity: 'Error al actualizar actividad reciente' }));
+                  })
+                  .finally(() => {
+                    setLoading(prev => ({ ...prev, activity: false }));
+                  });
+              }}
+            >
               Actualizar
             </Button>
           }
+          loading={loading.activity}
+          error={error.activity}
         >
           <TableContainer>
             <table>
@@ -354,6 +447,8 @@ const Dashboard = () => {
               Ver Todos
             </Button>
           }
+          loading={loading.lowStock}
+          error={error.lowStock}
         >
           <TableContainer>
             <table>

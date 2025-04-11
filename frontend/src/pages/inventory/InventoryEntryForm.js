@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { useNotification } from '../../context/NotificationContext';
+import { productService, inventoryService } from '../../services/api';
 
 const PageHeader = styled.div`
   display: flex;
@@ -207,72 +208,49 @@ const InventoryEntryForm = () => {
   
   // Cargar productos del catálogo
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockCatalogProducts = [
-      { 
-        id: 1, 
-        name: 'Notebook Dell Latitude 7400', 
-        category: 'Computadoras', 
-        subcategory: 'Notebooks', 
-        icon: 'Package', 
-        requiresSerial: true,
-        defaultLocation: 'Almacén IT',
-        minStock: 2
-      },
-      { 
-        id: 2, 
-        name: 'iPhone 13 Pro', 
-        category: 'Celulares', 
-        icon: 'Smartphone', 
-        requiresSerial: true,
-        defaultLocation: 'Almacén IT',
-        minStock: 1
-      },
-      { 
-        id: 3, 
-        name: 'Monitor Samsung 24"', 
-        category: 'Periféricos', 
-        subcategory: 'Monitores', 
-        icon: 'Monitor', 
-        requiresSerial: true,
-        defaultLocation: 'Almacén IT',
-        minStock: 0
-      },
-      { 
-        id: 4, 
-        name: 'Teclado Logitech MX Keys', 
-        category: 'Periféricos', 
-        subcategory: 'Teclados', 
-        icon: 'Type', 
-        requiresSerial: false, 
-        defaultLocation: 'Almacén IT',
-        minStock: 3
-      },
-      { 
-        id: 5, 
-        name: 'Cable HDMI 1.5m', 
-        category: 'Consumibles', 
-        subcategory: 'Cables', 
-        icon: 'Paperclip', 
-        requiresSerial: false,
-        defaultLocation: 'Almacén IT',
-        minStock: 5
-      },
-      { 
-        id: 6, 
-        name: 'Toner HP 85A', 
-        category: 'Consumibles', 
-        subcategory: 'Toner', 
-        icon: 'Box', 
-        requiresSerial: false,
-        defaultLocation: 'Almacén IT',
-        minStock: 2
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        
+        // Obtener todos los productos del catálogo
+        const response = await productService.getAll();
+        
+        // Mapear los productos para agregar propiedades necesarias para el formulario
+        const mappedProducts = response.data.map(product => {
+          // Determinar el icono basado en la categoría
+          let icon = 'Box';
+          if (product.categoryPath) {
+            if (product.categoryPath.includes('Computadoras/Notebooks')) icon = 'Package';
+            else if (product.categoryPath.includes('Celulares')) icon = 'Smartphone';
+            else if (product.categoryPath.includes('Monitores')) icon = 'Monitor';
+            else if (product.categoryPath.includes('Teclados')) icon = 'Type';
+            else if (product.categoryPath.includes('Mouse')) icon = 'Mouse';
+            else if (product.categoryPath.includes('Cables')) icon = 'Paperclip';
+            else if (product.categoryPath.includes('Toner')) icon = 'Printer';
+          }
+          
+          return {
+            ...product,
+            icon,
+            requiresSerial: product.trackSerial,
+            category: product.categoryPath ? product.categoryPath.split('/')[0] : 'Otros',
+            subcategory: product.categoryPath ? product.categoryPath.split('/').slice(1).join('/') : '',
+            defaultLocation: product.defaultLocation || 'Almacén IT',
+            minStock: product.minimumThreshold || 0
+          };
+        });
+        
+        setCatalogProducts(mappedProducts);
+      } catch (error) {
+        console.error('Error al cargar productos:', error);
+        showNotification('Error al cargar el catálogo de productos', 'error');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
     
-    setCatalogProducts(mockCatalogProducts);
-    setLoading(false);
-  }, []);
+    loadProducts();
+  }, [showNotification]);
   
   // Manejar búsqueda de productos
   const handleProductSearch = (e, setFieldValue) => {
@@ -358,35 +336,46 @@ const InventoryEntryForm = () => {
   });
   
   // Función para deshacer la última entrada de inventario
-  const undoEntrySubmission = (data) => {
-    if (!data) return;
+  const undoEntrySubmission = async (data) => {
+    if (!data || !data.id) return;
     
-    // En una implementación real, aquí se realizaría la llamada a la API
-    // para eliminar la entrada que acabamos de crear
-    console.log('Eliminando entrada de inventario:', data);
-    
-    // Mostrar notificación informativa
-    showNotification(
-      `Entrada de inventario revertida: ${data.quantity} ${data.productName}`,
-      'info'
-    );
+    try {
+      // Llamar a la API para eliminar la entrada que acabamos de crear
+      await inventoryService.cancelEntry(data.id);
+      
+      // Mostrar notificación informativa
+      showNotification(
+        `Entrada de inventario revertida: ${data.quantity} ${data.productName}`,
+        'info'
+      );
+    } catch (error) {
+      console.error('Error al revertir entrada de inventario:', error);
+      showNotification('Error al revertir la entrada de inventario', 'error');
+    }
   };
   
   // Enviar formulario
-  const handleSubmit = (values, { setSubmitting }) => {
-    console.log('Valores del formulario:', values);
-    
-    // Guardar el producto seleccionado para la notificación
-    const productName = selectedProduct ? selectedProduct.name : 'producto';
-    
-    // En una implementación real, aquí enviaríamos los datos a la API
-    setTimeout(() => {
-      setSubmitting(false);
+  const handleSubmit = async (values, { setSubmitting }) => {
+    try {
+      // Guardar el producto seleccionado para la notificación
+      const productName = selectedProduct ? selectedProduct.name : 'producto';
+      
+      // Preparar datos para enviar a la API
+      const entryData = {
+        productId: values.productId,
+        quantity: values.quantity,
+        receiptDate: values.receiptDate,
+        notes: values.notes,
+        serialNumbers: values.serialNumbers.filter(sn => sn.trim() !== '')
+      };
+      
+      // Enviar datos a la API
+      const response = await inventoryService.registerEntry(entryData);
       
       // Guardar los datos enviados para poder deshacer la acción si es necesario
       const submittedData = {
         ...values,
-        id: 'inventory-entry-' + Date.now(), // Simulando un ID generado por el servidor
+        id: response.data.id,
         productName: productName
       };
       
@@ -400,7 +389,12 @@ const InventoryEntryForm = () => {
       
       // Redireccionar
       navigate('/inventory');
-    }, 1000);
+    } catch (error) {
+      console.error('Error al registrar entrada de inventario:', error);
+      showNotification('Error al registrar la entrada. Por favor, intente nuevamente.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
   
   if (loading) {

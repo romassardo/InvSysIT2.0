@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import { reportService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 // Modal para edición de reportes
 const ModalOverlay = styled.div`
@@ -201,7 +203,14 @@ const DateInput = styled.input`
 const Reports = () => {
   const [activeTab, setActiveTab] = useState('predefined');
   const [selectedReport, setSelectedReport] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState({
+    predefined: true,
+    custom: true
+  });
+  const [error, setError] = useState({
+    predefined: null,
+    custom: null
+  });
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [reportToEdit, setReportToEdit] = useState(null);
@@ -227,9 +236,92 @@ const Reports = () => {
     status: '',
     location: ''
   });
+  const { showNotification } = useNotification();
   
-  // Lista de reportes predefinidos
-  const predefinedReports = [
+  // Cargar reportes predefinidos y personalizados desde la API
+  const [predefinedReports, setPredefinedReports] = useState([]);
+  const [customReports, setCustomReports] = useState([]);
+  
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        // Cargar reportes predefinidos
+        setLoading(prev => ({ ...prev, predefined: true }));
+        const predefinedResponse = await reportService.getPredefinedReports();
+        
+        if (predefinedResponse.data) {
+          // Mapear los datos al formato requerido por el componente
+          const formattedPredefined = predefinedResponse.data.map(report => ({
+            id: report.id,
+            title: report.name,
+            description: report.description,
+            icon: getReportIcon(report.type || 'general'),
+            formats: report.availableFormats || ['pdf', 'excel']
+          }));
+          
+          setPredefinedReports(formattedPredefined);
+          setError(prev => ({ ...prev, predefined: null }));
+        }
+      } catch (error) {
+        console.error('Error al cargar reportes predefinidos:', error);
+        setError(prev => ({ ...prev, predefined: 'Error al cargar reportes predefinidos' }));
+        showNotification('Error al cargar reportes predefinidos', 'error');
+      } finally {
+        setLoading(prev => ({ ...prev, predefined: false }));
+      }
+      
+      try {
+        // Cargar reportes personalizados
+        setLoading(prev => ({ ...prev, custom: true }));
+        const customResponse = await reportService.getCustomReports();
+        
+        if (customResponse.data) {
+          // Mapear los datos al formato requerido por el componente
+          const formattedCustom = customResponse.data.map(report => ({
+            id: report.id,
+            title: report.name,
+            description: report.description || `Reporte personalizado creado el ${new Date(report.createdAt).toLocaleDateString()}`,
+            icon: 'filter',
+            formats: report.availableFormats || ['pdf', 'excel']
+          }));
+          
+          setCustomReports(formattedCustom);
+          setError(prev => ({ ...prev, custom: null }));
+        }
+      } catch (error) {
+        console.error('Error al cargar reportes personalizados:', error);
+        setError(prev => ({ ...prev, custom: 'Error al cargar reportes personalizados' }));
+        showNotification('Error al cargar reportes personalizados', 'error');
+      } finally {
+        setLoading(prev => ({ ...prev, custom: false }));
+      }
+    };
+    
+    fetchReports();
+  }, [showNotification]);
+  
+  // Determinar el icono adecuado según el tipo de reporte
+  const getReportIcon = (reportType) => {
+    switch (reportType.toLowerCase()) {
+      case 'inventory':
+        return 'database';
+      case 'category':
+        return 'pie-chart';
+      case 'assigned':
+        return 'users';
+      case 'repair':
+        return 'tool';
+      case 'lowstock':
+        return 'alert-triangle';
+      case 'history':
+        return 'clock';
+      default:
+        return 'file-text';
+    }
+  };
+  
+  // Lista temporal para mostrar mientras se cargan datos reales
+  const fallbackPredefinedReports = [
     {
       id: 1,
       title: 'Inventario General',
@@ -274,8 +366,8 @@ const Reports = () => {
     }
   ];
   
-  // Lista de reportes personalizados (normalmente vendría de la API)
-  const [customReports, setCustomReports] = useState([
+  // Reportes personalizados fallback mientras se cargan los datos reales
+  const fallbackCustomReports = [
     {
       id: 101,
       title: 'Equipos por Marca',
@@ -290,7 +382,7 @@ const Reports = () => {
       icon: 'filter',
       formats: ['pdf', 'excel']
     }
-  ]);
+  ];
   
   // Manejar cambios en filtros
   const handleFilterChange = (e) => {
@@ -306,159 +398,43 @@ const Reports = () => {
     setSelectedReport(report);
   };
   
-  // Generar reporte
-  const generateReport = (format) => {
-    setLoading(true);
+  // Manejar el click en un formato de reporte
+  const handleFormatClick = (format, report, e) => {
+    e.stopPropagation();
+    setSelectedReport(report);
+    generateReport(format);
+  };
+  
+  // Generar reporte con API real
+  const generateReport = async (format) => {
+    if (!selectedReport) return;
     
-    // Normalmente aquí haríamos una llamada a la API para generar el reporte
-    console.log(`Generando reporte ${selectedReport.title} en formato ${format}`);
-    console.log('Filtros:', filters);
-    
-    // Simulamos un pequeño retraso para mostrar el loading
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      setLoading(prev => ({ ...prev, generate: true }));
       
-      // Generar contenido de ejemplo para el reporte
-      let content = '';
+      // Preparar parámetros para la generación del reporte
+      const params = {
+        reportId: selectedReport.id,
+        format: format || 'pdf',
+        filters: filters
+      };
       
-      // Generamos datos ficticios según el tipo de reporte
-      if (selectedReport.title === 'Inventario General') {
-        content = 'ID,Nombre,Categoría,Estado,Ubicación\n';
-        
-        // Aplicamos filtros si existen
-        let filteredData = [
-          { id: '001', name: 'Notebook Dell XPS 13', category: 'Computadoras', status: 'Activo', location: 'Oficina Central' },
-          { id: '002', name: 'iPhone 13 Pro', category: 'Celulares', status: 'Asignado', location: 'Juan Pérez' },
-          { id: '003', name: 'Monitor Samsung 24"', category: 'Periféricos', status: 'Activo', location: 'Oficina Central' },
-          { id: '004', name: 'Teclado Logitech', category: 'Periféricos', status: 'Activo', location: 'Oficina Central' },
-          { id: '005', name: 'Mouse Microsoft', category: 'Periféricos', status: 'En Reparación', location: 'Proveedor A' },
-        ];
-        
-        // Aplicar filtros
-        if (filters.category) {
-          const categoryMap = {
-            'computers': 'Computadoras',
-            'phones': 'Celulares',
-            'peripherals': 'Periféricos',
-            'network': 'Equipos de Red'
-          };
-          filteredData = filteredData.filter(item => item.category === categoryMap[filters.category]);
-        }
-        
-        if (filters.status) {
-          const statusMap = {
-            'active': 'Activo',
-            'assigned': 'Asignado',
-            'maintenance': 'En Reparación',
-            'retired': 'Retirado'
-          };
-          filteredData = filteredData.filter(item => item.status === statusMap[filters.status]);
-        }
-        
-        if (filters.location) {
-          const locationMap = {
-            'central': 'Oficina Central',
-            'branch1': 'Sucursal 1',
-            'branch2': 'Sucursal 2',
-            'branch3': 'Sucursal 3'
-          };
-          filteredData = filteredData.filter(item => item.location === locationMap[filters.location]);
-        }
-        
-        // Generar contenido filtrado
-        filteredData.forEach(item => {
-          content += `${item.id},${item.name},${item.category},${item.status},${item.location}\n`;
-        });
-        
-        // Añadir un mensaje sobre los filtros aplicados
-        if (filters.category || filters.status || filters.location || filters.dateFrom || filters.dateTo) {
-          let filterText = '\n\nFiltros aplicados:\n';
-          if (filters.category) filterText += `Categoría: ${filters.category}\n`;
-          if (filters.status) filterText += `Estado: ${filters.status}\n`;
-          if (filters.location) filterText += `Ubicación: ${filters.location}\n`;
-          if (filters.dateFrom) filterText += `Desde: ${filters.dateFrom}\n`;
-          if (filters.dateTo) filterText += `Hasta: ${filters.dateTo}\n`;
-          content += filterText;
-        }
-        
-      } else if (selectedReport.title === 'Activos por Categoría') {
-        content = 'Categoría,Subcategoría,Cantidad,Porcentaje\n';
-        content += 'Computadoras,Notebooks,45,32.1%\n';
-        content += 'Computadoras,Desktops,20,14.3%\n';
-        content += 'Celulares,,30,21.4%\n';
-        content += 'Periféricos,Teclados,15,10.7%\n';
-        content += 'Periféricos,Mouse,10,7.1%\n';
-        content += 'Periféricos,Monitores,20,14.3%\n';
-        
-        // Añadir un mensaje sobre los filtros aplicados
-        if (filters.status || filters.dateFrom || filters.dateTo) {
-          let filterText = '\n\nFiltros aplicados:\n';
-          if (filters.status) filterText += `Estado: ${filters.status}\n`;
-          if (filters.dateFrom) filterText += `Desde: ${filters.dateFrom}\n`;
-          if (filters.dateTo) filterText += `Hasta: ${filters.dateTo}\n`;
-          content += filterText;
-        }
-      } else if (selectedReport.title === 'Asignaciones Activas') {
-        content = 'ID,Usuario,Equipo,Departamento,Fecha Asignación\n';
-        content += '001,Juan Pérez,iPhone 13 Pro,Ventas,2023-05-15\n';
-        content += '002,María García,Notebook Dell XPS,Marketing,2023-06-22\n';
-        content += '003,Carlos López,iPhone 12,IT,2023-04-10\n';
-        
-        // Añadir un mensaje sobre los filtros aplicados
-        if (filters.department || filters.dateFrom || filters.dateTo) {
-          let filterText = '\n\nFiltros aplicados:\n';
-          if (filters.department) filterText += `Departamento: ${filters.department}\n`;
-          if (filters.dateFrom) filterText += `Desde: ${filters.dateFrom}\n`;
-          if (filters.dateTo) filterText += `Hasta: ${filters.dateTo}\n`;
-          content += filterText;
-        }
+      // Llamada a la API real para generar el reporte
+      const response = await reportService.generateReport(params);
+      
+      if (response.data && response.data.url) {
+        // Abrir enlace de descarga en nueva pestaña
+        window.open(response.data.url, '_blank');
+        showNotification(`Reporte ${selectedReport?.title} generado correctamente`, 'success');
       } else {
-        // Generar contenido genérico para otros informes
-        content = `Reporte: ${selectedReport.title}\n`;
-        content += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
-        content += 'Este es un reporte de ejemplo generado para demostración.\n';
-        content += 'En una implementación real, contendría datos reales del sistema.';
+        throw new Error('No se pudo obtener la URL de descarga');
       }
-      
-      // Crear el objeto de archivo según el formato
-      let fileContent = content;
-      let mimeType = 'text/plain';
-      let fileExtension = 'txt';
-      
-      if (format === 'excel') {
-        // Para Excel, usamos CSV pero con extension .xlsx
-        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-        fileExtension = 'xlsx';
-      } else if (format === 'csv') {
-        mimeType = 'text/csv';
-        fileExtension = 'csv';
-      } else if (format === 'pdf') {
-        // Para PDF, simulamos un contenido simple
-        // En una implementación real se usaría una biblioteca como jsPDF
-        mimeType = 'application/pdf';
-        fileExtension = 'pdf';
-        // Aviso sobre formato PDF (requiere biblioteca adicional)
-        alert('Para generar PDFs reales se requiere implementar una biblioteca como jsPDF. Este es un archivo de demostración.');
-      }
-      
-      // Crear un blob con el contenido
-      const blob = new Blob([fileContent], { type: mimeType });
-      
-      // Crear URL del objeto y forzar descarga
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${selectedReport.title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
-      document.body.appendChild(link);
-      link.click();
-      
-      // Limpiar
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
-      
-      // Mostrar notificación
-      alert(`Reporte ${selectedReport.title} generado en formato ${format.toUpperCase()}`);
-    }, 1500);
+    } catch (error) {
+      console.error('Error al generar reporte:', error);
+      showNotification('Error al generar el reporte', 'error');
+    } finally {
+      setLoading(prev => ({ ...prev, generate: false }));
+    }
   };
   
   // Renderizar el contenido según la tab activa
@@ -489,10 +465,7 @@ const Reports = () => {
                         key={format} 
                         variant="outline" 
                         size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleReportSelect(report);
-                        }}
+                        onClick={(e) => handleFormatClick(format, report, e)}
                       >
                         {format.toUpperCase()}
                       </Button>
@@ -719,7 +692,7 @@ const Reports = () => {
                         title="Eliminar reporte"
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Acción de eliminar
+                          handleDeleteReport(report.id);
                         }}
                       >
                         <FeatherIcon icon="trash-2" size={16} />
@@ -730,11 +703,7 @@ const Reports = () => {
                           key={format} 
                           variant="outline" 
                           size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleReportSelect(report);
-                            generateReport(format);
-                          }}
+                          onClick={(e) => handleFormatClick(format, report, e)}
                         >
                           {format.toUpperCase()}
                         </Button>
@@ -762,20 +731,40 @@ const Reports = () => {
   };
   
   // Guardar cambios del reporte editado
-  const handleSaveEdit = (e) => {
+  const handleSaveEdit = async (e) => {
     e.preventDefault();
     
-    // Actualizar el reporte en la lista
-    const updatedReports = customReports.map(report => 
-      report.id === reportToEdit.id ? reportToEdit : report
-    );
-    
-    setCustomReports(updatedReports);
-    setShowEditModal(false);
-    setReportToEdit(null);
-    
-    // Mostrar mensaje de éxito
-    alert('Reporte actualizado correctamente');
+    try {
+      setLoading(prev => ({ ...prev, update: true }));
+      
+      // Preparar datos para la API
+      const reportData = {
+        name: reportToEdit.title,
+        description: reportToEdit.description || 'Reporte personalizado actualizado',
+        filters: reportToEdit.filters,
+        fields: reportToEdit.selectedFields,
+        formats: reportToEdit.formats
+      };
+      
+      // Llamada a la API real para actualizar el reporte
+      await reportService.updateCustomReport(reportToEdit.id, reportData);
+      
+      // Actualizar la lista local
+      const updatedReports = customReports.map(report => 
+        report.id === reportToEdit.id ? reportToEdit : report
+      );
+      
+      setCustomReports(updatedReports);
+      setShowEditModal(false);
+      setReportToEdit(null);
+      
+      showNotification('Reporte actualizado correctamente', 'success');
+    } catch (error) {
+      console.error('Error al actualizar reporte:', error);
+      showNotification('Error al actualizar el reporte', 'error');
+    } finally {
+      setLoading(prev => ({ ...prev, update: false }));
+    }
   };
   
   // Manejar cambios en el formulario de creación

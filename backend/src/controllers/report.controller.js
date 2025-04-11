@@ -7,6 +7,84 @@ const logger = require('../utils/logger');
  */
 class ReportController {
     /**
+     * Obtener listado de reportes disponibles
+     * @param {Object} req - Request de Express
+     * @param {Object} res - Response de Express
+     */
+    static async getAvailableReports(req, res) {
+        try {
+            // Lista de reportes disponibles para el usuario
+            const reports = [
+                {
+                    id: 'current-inventory',
+                    name: 'Inventario Actual',
+                    description: 'Muestra el estado actual del inventario con filtros por categoría o tipo',
+                    requiresAdmin: false
+                },
+                {
+                    id: 'my-assets',
+                    name: 'Mis Activos Asignados',
+                    description: 'Muestra los activos asignados al usuario actual',
+                    requiresAdmin: false
+                },
+                {
+                    id: 'asset-history',
+                    name: 'Historial de Activo',
+                    description: 'Muestra el historial completo de un activo específico',
+                    requiresAdmin: false,
+                    requiresAssetId: true
+                },
+                {
+                    id: 'assigned-assets',
+                    name: 'Activos Asignados (Todos)',
+                    description: 'Muestra todos los activos asignados filtrados por departamento o usuario',
+                    requiresAdmin: true
+                },
+                {
+                    id: 'inventory-movements',
+                    name: 'Movimientos de Inventario',
+                    description: 'Muestra el historial de movimientos con filtros por fecha, tipo o producto',
+                    requiresAdmin: true
+                },
+                {
+                    id: 'low-stock',
+                    name: 'Consumibles Bajo Stock Mínimo',
+                    description: 'Muestra los consumibles que están por debajo del umbral mínimo configurado',
+                    requiresAdmin: true
+                },
+                {
+                    id: 'repairs-maintenance',
+                    name: 'Reparaciones y Mantenimiento',
+                    description: 'Muestra el historial de reparaciones con estado y tiempo de servicio',
+                    requiresAdmin: true
+                },
+                {
+                    id: 'custom',
+                    name: 'Reporte Personalizado',
+                    description: 'Permite crear un reporte personalizado con múltiples filtros y criterios',
+                    requiresAdmin: true,
+                    isCustom: true
+                }
+            ];
+            
+            // Si el usuario no es admin, filtrar reportes que requieren permisos
+            const isAdmin = req.user && req.user.role === 'admin';
+            const availableReports = isAdmin ? reports : reports.filter(r => !r.requiresAdmin);
+            
+            return res.json({
+                status: 'success',
+                data: availableReports
+            });
+        } catch (error) {
+            logger.error(`Error al obtener reportes disponibles: ${error.message}`);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Error al obtener reportes disponibles',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
+            });
+        }
+    }
+    /**
      * Generar reporte de inventario actual
      * @param {Object} req - Request de Express
      * @param {Object} res - Response de Express
@@ -32,6 +110,66 @@ class ReportController {
             return res.status(500).json({
                 status: 'error',
                 message: 'Error al generar reporte',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
+            });
+        }
+    }
+
+    /**
+     * Generar reporte de activos asignados al usuario actual
+     * @param {Object} req - Request de Express
+     * @param {Object} res - Response de Express
+     */
+    static async myAssignedAssets(req, res) {
+        try {
+            // Obtener el ID del usuario actual desde el token JWT
+            const userId = req.user.id;
+            
+            // Generar el reporte de activos asignados
+            const report = await Report.getAssignedAssetsByUser(userId);
+            
+            return res.json({
+                status: 'success',
+                data: report
+            });
+        } catch (error) {
+            logger.error(`Error al generar reporte de activos asignados: ${error.message}`);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Error al generar reporte de activos asignados',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
+            });
+        }
+    }
+
+    /**
+     * Generar reporte de historial de un activo específico
+     * @param {Object} req - Request de Express
+     * @param {Object} res - Response de Express
+     */
+    static async assetHistory(req, res) {
+        try {
+            const assetId = parseInt(req.params.assetId);
+            
+            if (!assetId) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Se requiere un ID de activo válido'
+                });
+            }
+            
+            // Generar el reporte de historial del activo
+            const report = await Report.getAssetHistory(assetId);
+            
+            return res.json({
+                status: 'success',
+                data: report
+            });
+        } catch (error) {
+            logger.error(`Error al generar historial de activo: ${error.message}`);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Error al generar historial de activo',
                 error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
             });
         }
@@ -227,6 +365,99 @@ class ReportController {
             return res.status(500).json({
                 status: 'error',
                 message: 'Error al generar reporte',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
+            });
+        }
+    }
+
+    /**
+     * Generar reporte de consumibles bajo stock mínimo
+     * @param {Object} req - Request de Express
+     * @param {Object} res - Response de Express
+     */
+    static async lowStock(req, res) {
+        try {
+            const { categoryId } = req.query;
+            
+            const filters = {
+                categoryId: categoryId ? parseInt(categoryId) : null
+            };
+            
+            const report = await Report.lowStock(filters);
+            
+            return res.json({
+                status: 'success',
+                data: report
+            });
+        } catch (error) {
+            logger.error(`Error al generar reporte de stock bajo: ${error.message}`);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Error al generar reporte de stock bajo',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
+            });
+        }
+    }
+
+    /**
+     * Generar reporte de reparaciones y mantenimiento
+     * @param {Object} req - Request de Express
+     * @param {Object} res - Response de Express
+     */
+    static async repairsAndMaintenance(req, res) {
+        try {
+            const { status, startDate, endDate, repairProvider } = req.query;
+            
+            const filters = {
+                status: status || null,
+                startDate: startDate || null,
+                endDate: endDate || null,
+                repairProvider: repairProvider || null
+            };
+            
+            const report = await Report.repairsAndMaintenance(filters);
+            
+            return res.json({
+                status: 'success',
+                data: report
+            });
+        } catch (error) {
+            logger.error(`Error al generar reporte de reparaciones: ${error.message}`);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Error al generar reporte de reparaciones',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
+            });
+        }
+    }
+
+    /**
+     * Generar reporte personalizado con filtros avanzados
+     * @param {Object} req - Request de Express
+     * @param {Object} res - Response de Express
+     */
+    static async customReport(req, res) {
+        try {
+            const reportConfig = req.body;
+            
+            if (!reportConfig || !reportConfig.reportType) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Configuración de reporte inválida'
+                });
+            }
+            
+            const report = await Report.customReport(reportConfig);
+            
+            return res.json({
+                status: 'success',
+                data: report
+            });
+        } catch (error) {
+            logger.error(`Error al generar reporte personalizado: ${error.message}`);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Error al generar reporte personalizado',
                 error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
             });
         }

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import { userService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -43,44 +45,79 @@ const UserTable = styled.table`
 `;
 
 const UserManagement = () => {
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: 'Rodrigo Pérez',
-      email: 'rodrigo.perez@empresa.com',
-      role: 'Administrador',
-      department: 'IT',
-      status: 'Activo',
-      lastLogin: '2025-04-04 15:30'
-    },
-    {
-      id: 2,
-      name: 'María González',
-      email: 'maria.gonzalez@empresa.com',
-      role: 'Técnico',
-      department: 'Soporte',
-      status: 'Activo',
-      lastLogin: '2025-04-04 14:15'
-    },
-    {
-      id: 3,
-      name: 'Juan Rodríguez',
-      email: 'juan.rodriguez@empresa.com',
-      role: 'Técnico',
-      department: 'Soporte',
-      status: 'Activo',
-      lastLogin: '2025-04-03 09:45'
-    },
-    {
-      id: 4,
-      name: 'Ana Martínez',
-      email: 'ana.martinez@empresa.com',
-      role: 'Usuario',
-      department: 'Administración',
-      status: 'Inactivo',
-      lastLogin: '2025-03-28 11:20'
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { showNotification } = useNotification();
+  
+  // Cargar usuarios desde la API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const response = await userService.getAll();
+        
+        // Transformar datos si es necesario
+        const formattedUsers = response.data.map(user => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role === 'admin' ? 'Administrador' : 
+               user.role === 'technician' ? 'Técnico' : 'Usuario',
+          department: user.department || 'No asignado',
+          status: user.active ? 'Activo' : 'Inactivo',
+          lastLogin: user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Nunca'
+        }));
+        
+        setUsers(formattedUsers);
+        setError(null);
+      } catch (error) {
+        console.error('Error al cargar usuarios:', error);
+        setError('No se pudieron cargar los usuarios');
+        showNotification('Error al cargar los usuarios', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUsers();
+  }, [showNotification]);
+
+  // Función para activar/desactivar usuario
+  const handleToggleStatus = async (userId, currentStatus) => {
+    try {
+      if (window.confirm(`¿Está seguro que desea ${currentStatus === 'Activo' ? 'desactivar' : 'activar'} este usuario?`)) {
+        await userService[currentStatus === 'Activo' ? 'deactivate' : 'activate'](userId);
+        
+        // Actualizar usuario en la lista local
+        const updatedUsers = users.map(user => {
+          if (user.id === userId) {
+            return {
+              ...user,
+              status: currentStatus === 'Activo' ? 'Inactivo' : 'Activo'
+            };
+          }
+          return user;
+        });
+        
+        setUsers(updatedUsers);
+        showNotification(`Usuario ${currentStatus === 'Activo' ? 'desactivado' : 'activado'} correctamente`, 'success');
+      }
+    } catch (error) {
+      console.error('Error al actualizar estado del usuario:', error);
+      showNotification('Error al actualizar el estado del usuario', 'error');
     }
-  ]);
+  };
+  
+  // Función para editar usuario (redirige a página de edición)
+  const handleEditUser = (userId) => {
+    window.location.href = `/admin/users/edit/${userId}`;
+  };
+  
+  // Función para crear nuevo usuario (redirige a página de creación)
+  const handleAddUser = () => {
+    window.location.href = '/admin/users/new';
+  };
 
   return (
     <div>
@@ -90,14 +127,27 @@ const UserManagement = () => {
           Gestión de Usuarios
         </PageTitle>
         
-        <Button variant="primary" icon="user-plus">
+        <Button variant="primary" icon="user-plus" onClick={handleAddUser}>
           Nuevo Usuario
         </Button>
       </PageHeader>
       
       <Card>
-        <UserTable>
-          <thead>
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-lg)' }}>
+            <FeatherIcon icon="loader" size={32} className="spin" />
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>
+            <FeatherIcon icon="alert-triangle" size={24} />
+            <p>{error}</p>
+            <Button variant="primary" onClick={() => window.location.reload()}>
+              Reintentar
+            </Button>
+          </div>
+        ) : (
+          <UserTable>
+            <thead>
             <tr>
               <th>Usuario</th>
               <th>Correo</th>
@@ -176,6 +226,7 @@ const UserManagement = () => {
             ))}
           </tbody>
         </UserTable>
+        )}
       </Card>
     </div>
   );

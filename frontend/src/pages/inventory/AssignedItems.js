@@ -6,6 +6,8 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Icon from '../../components/ui/Icon';
+import { inventoryService, categoryService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -202,10 +204,14 @@ const AssignedItems = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
+  const { showNotification } = useNotification();
   
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filteredAssets, setFilteredAssets] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
     category: queryParams.get('category') || '',
@@ -220,173 +226,146 @@ const AssignedItems = () => {
   });
   
   // Categorías rastreables (con asignación individual y seguimiento)
-  const trackableCategories = ['Computadoras', 'Celulares'];
+  const [trackableCategories, setTrackableCategories] = useState(['Computadoras', 'Celulares']);
   
-  // Simulación de carga de datos
-  // Aplicar filtros a los activos
+  // Cargar categorías al iniciar
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await categoryService.getAll();
+        if (response && response.data) {
+          setCategories(response.data);
+          
+          // Identificar las categorías rastreables (notebooks y celulares)
+          const trackable = response.data
+            .filter(cat => 
+              cat.name.toLowerCase().includes('computadora') || 
+              cat.name.toLowerCase().includes('celular') ||
+              cat.name.toLowerCase().includes('notebook') ||
+              cat.name.toLowerCase().includes('laptop')
+            )
+            .map(cat => cat.name);
+            
+          if (trackable.length > 0) {
+            setTrackableCategories(trackable);
+          }
+        }
+      } catch (error) {
+        console.error('Error al cargar categorías:', error);
+      }
+    };
+    
+    fetchCategories();
+  }, []);
+
+  // Cargar inventario de equipos asignados
+  useEffect(() => {
+    const fetchAssignedItems = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Crear parámetros para la consulta
+        const queryParams = {
+          assigned: true,  // Sólo items asignados
+          ...filters      // Agregar cualquier otro filtro activo
+        };
+        
+        // Quitar deviceType de los parámetros ya que es solo para UI local
+        if (queryParams.deviceType) {
+          delete queryParams.deviceType;
+        }
+        
+        // Agregar parámetros de paginación
+        queryParams.page = pagination.page;
+        queryParams.limit = pagination.limit;
+        
+        // Obtener equipos asignados
+        const response = await inventoryService.getAssignedItems(queryParams);
+        
+        if (response && response.data) {
+          // Procesar los datos y agregar iconos adecuados
+          const processedAssets = response.data.map(item => {
+            // Determinar icono basado en la categoría
+            let icon = 'Box';
+            const category = (item.category || '').toLowerCase();
+            const subcategory = (item.subcategory || '').toLowerCase();
+            
+            if (category.includes('computadora') || category.includes('notebook')) {
+              icon = 'Laptop';
+            } else if (category.includes('celular')) {
+              icon = 'Smartphone';
+            } else if (category.includes('periférico')) {
+              if (subcategory.includes('monitor')) icon = 'Monitor';
+              else if (subcategory.includes('mouse')) icon = 'MousePointer';
+              else if (subcategory.includes('teclado')) icon = 'Type';
+              else if (subcategory.includes('webcam')) icon = 'Video';
+              else if (subcategory.includes('tv') || subcategory.includes('televisor')) icon = 'Tv';
+            }
+            
+            // Extraer ubicaciones únicas para los filtros
+            if (item.location && !locations.includes(item.location)) {
+              setLocations(prev => [...prev, item.location]);
+            }
+            
+            return {
+              ...item,
+              icon
+            };
+          });
+          
+          setAssets(processedAssets);
+          
+          // Si no hay filtros de cliente, establecer los datos filtrados también
+          setFilteredAssets(processedAssets);
+          
+          setPagination(prev => ({
+            ...prev,
+            total: response.headers['x-total-count'] || processedAssets.length
+          }));
+        } else {
+          throw new Error('Formato de respuesta inválido');
+        }
+      } catch (error) {
+        console.error('Error al cargar equipos asignados:', error);
+        setError('Error al cargar los equipos asignados. Por favor, intente nuevamente.');
+        showNotification('Error al cargar los equipos asignados', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAssignedItems();
+  }, [filters, pagination.page, pagination.limit, showNotification]);
+  
+  // Aplicar filtros adicionales en el cliente si es necesario
   useEffect(() => {
     if (!assets.length) return;
     
-    // Solo mostrar equipos rastreables (notebooks y celulares)
-    let result = assets.filter(asset => trackableCategories.includes(asset.category));
+    // Solo mostrar equipos rastreables si el filtro está activo
+    let result = filters.deviceType === 'trackable' 
+      ? assets.filter(asset => trackableCategories.includes(asset.category))
+      : [...assets];
     
-    // Aplicar filtro de búsqueda
+    // Aplicar filtro de búsqueda local si es necesario
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
       result = result.filter(asset =>
-        asset.name.toLowerCase().includes(searchTerm) ||
-        asset.serialNumber.toLowerCase().includes(searchTerm) ||
-        asset.assignee.name.toLowerCase().includes(searchTerm) ||
-        asset.location.toLowerCase().includes(searchTerm)
+        asset.name?.toLowerCase().includes(searchTerm) ||
+        asset.serialNumber?.toLowerCase().includes(searchTerm) ||
+        asset.assignee?.name?.toLowerCase().includes(searchTerm) ||
+        asset.location?.toLowerCase().includes(searchTerm)
       );
-    }
-    
-    // Filtrar por categoría
-    if (filters.category) {
-      result = result.filter(asset => asset.category === filters.category);
-    }
-    
-    // Filtrar por ubicación
-    if (filters.location) {
-      result = result.filter(asset => asset.location === filters.location);
     }
     
     setFilteredAssets(result);
     
-    // Actualizar paginación
+    // Actualizar paginación local
     setPagination(prev => ({
       ...prev,
       total: result.length
     }));
-  }, [assets, filters]);
-
-  useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockAssets = [
-      {
-        id: 1,
-        name: 'Notebook Dell Latitude 7400',
-        serialNumber: 'DL7400-123456',
-        category: 'Computadoras',
-        subcategory: 'Notebooks',
-        assignee: {
-          name: 'Juan Pérez',
-          type: 'Empleado',
-          department: 'Desarrollo'
-        },
-        location: 'Oficina Central',
-        assignedDate: '2025-03-10T14:22:10Z',
-        assignedBy: 'Admin',
-        icon: 'laptop'
-      },
-      {
-        id: 3,
-        name: 'iPhone 13 Pro',
-        serialNumber: 'IP13-456789',
-        category: 'Celulares',
-        subcategory: '',
-        assignee: {
-          name: 'María López',
-          type: 'Empleado',
-          department: 'Marketing'
-        },
-        location: 'Sucursal Norte',
-        assignedDate: '2025-02-05T11:30:00Z',
-        assignedBy: 'Soporte1',
-        icon: 'smartphone'
-      },
-      {
-        id: 6,
-        name: 'Mouse Wireless HP',
-        serialNumber: 'HP-WM-123',
-        category: 'Periféricos',
-        subcategory: 'Mouse',
-        assignee: {
-          name: 'Carlos González',
-          type: 'Empleado',
-          department: 'Administración'
-        },
-        location: 'Oficina Central',
-        assignedDate: '2025-01-20T09:15:00Z',
-        assignedBy: 'Admin',
-        icon: 'mouse-pointer'
-      },
-      {
-        id: 9,
-        name: 'Monitor LG 27"',
-        serialNumber: 'LG27-789012',
-        category: 'Periféricos',
-        subcategory: 'Monitores',
-        assignee: {
-          name: 'Sala de Reuniones',
-          type: 'Área',
-          department: 'General'
-        },
-        location: 'Oficina Central',
-        assignedDate: '2025-03-15T10:00:00Z',
-        assignedBy: 'Admin',
-        icon: 'monitor'
-      },
-      {
-        id: 10,
-        name: 'Notebook HP ProBook 450',
-        serialNumber: 'HP450-654321',
-        category: 'Computadoras',
-        subcategory: 'Notebooks',
-        assignee: {
-          name: 'Ana Martínez',
-          type: 'Empleado',
-          department: 'Recursos Humanos'
-        },
-        location: 'Sucursal Sur',
-        assignedDate: '2025-03-01T11:45:30Z',
-        assignedBy: 'Soporte2',
-        icon: 'laptop'
-      },
-      {
-        id: 11,
-        name: 'Televisor Samsung 55"',
-        serialNumber: 'TV55-112233',
-        category: 'Periféricos',
-        subcategory: 'Televisores',
-        assignee: {
-          name: 'Recepción',
-          type: 'Área',
-          department: 'General'
-        },
-        location: 'Oficina Central',
-        assignedDate: '2025-02-20T15:30:00Z',
-        assignedBy: 'Admin',
-        icon: 'tv'
-      },
-      {
-        id: 12,
-        name: 'Webcam Logitech C920',
-        serialNumber: 'LGC920-445566',
-        category: 'Periféricos',
-        subcategory: 'Webcams',
-        assignee: {
-          name: 'Pedro Sánchez',
-          type: 'Empleado',
-          department: 'Ventas'
-        },
-        location: 'Oficina Central',
-        assignedDate: '2025-03-05T09:15:00Z',
-        assignedBy: 'Soporte1',
-        icon: 'video'
-      }
-    ];
-    
-    setTimeout(() => {
-      setAssets(mockAssets);
-      setPagination({
-        page: 1,
-        limit: 10,
-        total: mockAssets.length
-      });
-      setLoading(false);
-    }, 800);
-  }, []);
+  }, [assets, filters, trackableCategories]);
   
   // Manejar cambios en filtros
   const handleFilterChange = (e) => {
@@ -395,7 +374,12 @@ const AssignedItems = () => {
       ...prev,
       [name]: value
     }));
-    // En una implementación real, aquí haríamos una llamada a la API con los nuevos filtros
+    
+    // Resetear paginación al cambiar filtros
+    setPagination(prev => ({
+      ...prev,
+      page: 1
+    }));
   };
   
   // Función para formatear fecha
@@ -510,9 +494,9 @@ const AssignedItems = () => {
           onChange={handleFilterChange}
         >
           <option value="">Todas las Ubicaciones</option>
-          <option value="Oficina Central">Oficina Central</option>
-          <option value="Sucursal Norte">Sucursal Norte</option>
-          <option value="Sucursal Sur">Sucursal Sur</option>
+          {locations.map((location, index) => (
+            <option key={index} value={location}>{location}</option>
+          ))}
         </FilterSelect>
       </FilterBar>
       

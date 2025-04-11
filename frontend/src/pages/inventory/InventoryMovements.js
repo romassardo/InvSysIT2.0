@@ -5,6 +5,8 @@ import Icon from '../../components/ui/Icon';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { inventoryService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -214,8 +216,11 @@ const StatusBadge = ({ type }) => {
 
 const InventoryMovements = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [categories, setCategories] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
     type: '',
@@ -231,183 +236,87 @@ const InventoryMovements = () => {
     total: 0
   });
   
-  // Simulación de carga de datos
+  // Cargar datos de movimientos de inventario desde la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockMovements = [
-      {
-        id: 1,
-        type: 'entry',
-        date: '2025-04-07',
-        product: {
-          id: 1,
-          name: 'Notebook Dell Latitude 7400',
-          category: 'Computadoras',
-          subcategory: 'Notebooks',
-          icon: 'Laptop'
-        },
-        quantity: 3,
-        serialNumbers: ['DL7400-123456', 'DL7400-123457', 'DL7400-123458'],
-        destination: 'Almacén IT',
-        user: 'Admin'
-      },
-      {
-        id: 2,
-        type: 'out',
-        date: '2025-04-07',
-        product: {
-          id: 1,
-          name: 'Notebook Dell Latitude 7400',
-          category: 'Computadoras',
-          subcategory: 'Notebooks',
-          icon: 'Laptop'
-        },
-        quantity: 1,
-        serialNumbers: ['DL7400-123456'],
-        destination: 'Juan Pérez (Desarrollo)',
-        user: 'Admin',
-        additionalInfo: {
-          bitlockerPassword: '********'
+    const fetchInventoryMovements = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Construir parámetros de filtro para la API
+        const queryParams = {};
+        
+        if (filters.type) queryParams.type = filters.type;
+        if (filters.category) queryParams.category = filters.category;
+        if (filters.dateFrom) queryParams.dateFrom = filters.dateFrom;
+        if (filters.dateTo) queryParams.dateTo = filters.dateTo;
+        if (filters.search) queryParams.search = filters.search;
+        if (filters.destination) queryParams.destination = filters.destination;
+        
+        // Obtener movimientos de inventario
+        const response = await inventoryService.getMovements(queryParams);
+        
+        if (response.data && Array.isArray(response.data)) {
+          // Procesar los datos recibidos
+          const processedMovements = response.data.map(movement => {
+            // Determinar el icono basado en la categoría del producto
+            let icon = 'Box';
+            if (movement.product) {
+              const category = (movement.product.category || '').toLowerCase();
+              const subcategory = (movement.product.subcategory || '').toLowerCase();
+              
+              if (category.includes('computadora')) icon = 'Laptop';
+              else if (category.includes('celular')) icon = 'Smartphone';
+              else if (category.includes('periférico')) {
+                if (subcategory.includes('monitor')) icon = 'Monitor';
+                else if (subcategory.includes('teclado')) icon = 'Type';
+                else if (subcategory.includes('mouse')) icon = 'MousePointer';
+              }
+              else if (category.includes('consumible')) {
+                if (subcategory.includes('cable')) icon = 'Paperclip';
+                else if (subcategory.includes('toner')) icon = 'Printer';
+              }
+            }
+            
+            // Asegurarse de que product tenga la estructura correcta
+            const formattedProduct = movement.product ? {
+              ...movement.product,
+              icon
+            } : { name: 'Producto desconocido', icon: 'HelpCircle' };
+            
+            return {
+              ...movement,
+              product: formattedProduct
+            };
+          });
+          
+          setMovements(processedMovements);
+          setPagination(prev => ({
+            ...prev,
+            total: processedMovements.length
+          }));
+          
+          // Extraer categorías únicas para el filtro
+          const uniqueCategories = [...new Set(processedMovements
+            .filter(m => m.product && m.product.category)
+            .map(m => m.product.category))]
+            .sort();
+          
+          setCategories(uniqueCategories);
+        } else {
+          throw new Error('Formato de respuesta inválido');
         }
-      },
-      {
-        id: 3,
-        type: 'entry',
-        date: '2025-04-06',
-        product: {
-          id: 2,
-          name: 'iPhone 13 Pro',
-          category: 'Celulares',
-          icon: 'Smartphone'
-        },
-        quantity: 2,
-        serialNumbers: ['IP13-456789', 'IP13-456790'],
-        destination: 'Almacén IT',
-        user: 'Admin'
-      },
-      {
-        id: 4,
-        type: 'out',
-        date: '2025-04-06',
-        product: {
-          id: 2,
-          name: 'iPhone 13 Pro',
-          category: 'Celulares',
-          icon: 'Smartphone'
-        },
-        quantity: 1,
-        serialNumbers: ['IP13-456789'],
-        destination: 'María López (Marketing)',
-        user: 'Admin',
-        additionalInfo: {
-          phoneNumber: '11-****-****',
-          gmailAccount: 'maria.lopez@******.com',
-          gmailPassword: '********'
-        }
-      },
-      {
-        id: 5,
-        type: 'entry',
-        date: '2025-04-05',
-        product: {
-          id: 3,
-          name: 'Monitor Samsung 24"',
-          category: 'Periféricos',
-          subcategory: 'Monitores',
-          icon: 'Monitor'
-        },
-        quantity: 5,
-        serialNumbers: ['SM24-001', 'SM24-002', 'SM24-003', 'SM24-004', 'SM24-005'],
-        destination: 'Almacén IT',
-        user: 'Admin'
-      },
-      {
-        id: 6,
-        type: 'out',
-        date: '2025-04-05',
-        product: {
-          id: 3,
-          name: 'Monitor Samsung 24"',
-          category: 'Periféricos',
-          subcategory: 'Monitores',
-          icon: 'Monitor'
-        },
-        quantity: 2,
-        serialNumbers: ['SM24-001', 'SM24-002'],
-        destination: 'Departamento de Diseño',
-        user: 'Admin'
-      },
-      {
-        id: 7,
-        type: 'entry',
-        date: '2025-04-04',
-        product: {
-          id: 4,
-          name: 'Teclado Logitech MX Keys',
-          category: 'Periféricos',
-          subcategory: 'Teclados',
-          icon: 'Type'
-        },
-        quantity: 10,
-        destination: 'Almacén IT',
-        user: 'Admin'
-      },
-      {
-        id: 8,
-        type: 'out',
-        date: '2025-04-04',
-        product: {
-          id: 4,
-          name: 'Teclado Logitech MX Keys',
-          category: 'Periféricos',
-          subcategory: 'Teclados',
-          icon: 'Type'
-        },
-        quantity: 5,
-        destination: 'Sucursal Norte',
-        user: 'Admin'
-      },
-      {
-        id: 9,
-        type: 'entry',
-        date: '2025-04-03',
-        product: {
-          id: 5,
-          name: 'Cable HDMI 1.5m',
-          category: 'Consumibles',
-          subcategory: 'Cables',
-          icon: 'Paperclip'
-        },
-        quantity: 20,
-        destination: 'Almacén IT',
-        user: 'Admin'
-      },
-      {
-        id: 10,
-        type: 'out',
-        date: '2025-04-02',
-        product: {
-          id: 5,
-          name: 'Cable HDMI 1.5m',
-          category: 'Consumibles',
-          subcategory: 'Cables',
-          icon: 'Paperclip'
-        },
-        quantity: 5,
-        destination: 'Proyecto Alpha',
-        user: 'Admin'
+      } catch (error) {
+        console.error('Error al cargar movimientos de inventario:', error);
+        setError('Error al cargar movimientos. Por favor, intente nuevamente.');
+        showNotification('Error al cargar movimientos de inventario', 'error');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
     
-    setTimeout(() => {
-      setMovements(mockMovements);
-      setPagination({
-        ...pagination,
-        total: mockMovements.length
-      });
-      setLoading(false);
-    }, 500);
-  }, []);
+    fetchInventoryMovements();
+  }, [filters, showNotification]);
   
   // Manejar cambios en los filtros
   const handleFilterChange = (e) => {
@@ -533,9 +442,7 @@ const InventoryMovements = () => {
   
   // Ver detalles de un movimiento
   const handleViewMovementDetails = (movementId) => {
-    // En una implementación real, aquí redirigiríamos a una vista detallada del movimiento
-    console.log(`Ver detalles del movimiento #${movementId}`);
-    alert(`Detalles del movimiento #${movementId}\nEn una implementación real, esta acción abriría una vista detallada del movimiento.`);
+    navigate(`/inventory/movement/${movementId}`);
   };
   
   return (
@@ -590,11 +497,9 @@ const InventoryMovements = () => {
           onChange={handleFilterChange}
         >
           <option value="">Todas las Categorías</option>
-          <option value="Computadoras">Computadoras</option>
-          <option value="Celulares">Celulares</option>
-          <option value="Periféricos">Periféricos</option>
-          <option value="Consumibles">Consumibles</option>
-          <option value="Componentes">Componentes</option>
+          {categories.map((category, index) => (
+            <option key={index} value={category}>{category}</option>
+          ))}
         </FilterSelect>
         
         <DateRangeInput>
@@ -618,7 +523,29 @@ const InventoryMovements = () => {
         <Button 
           variant="outline" 
           icon="Download"
-          onClick={() => alert('En una implementación real, esta acción exportaría los datos a un archivo Excel o CSV.')}
+          onClick={async () => {
+            try {
+              const response = await inventoryService.exportMovements(filters);
+              if (response && response.data) {
+                // Crear un objeto blob con los datos CSV/Excel
+                const blob = new Blob([response.data], { type: response.headers['content-type'] });
+                const url = window.URL.createObjectURL(blob);
+                
+                // Crear un enlace temporal y hacer clic en él para descargar
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `movimientos_inventario_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification('Reporte exportado correctamente', 'success');
+              }
+            } catch (error) {
+              console.error('Error al exportar los movimientos:', error);
+              showNotification('Error al exportar los movimientos', 'error');
+            }
+          }}
         >
           Exportar
         </Button>
@@ -633,6 +560,22 @@ const InventoryMovements = () => {
           }}>
             <Icon name="Loader" size={36} />
             <p style={{ marginTop: 'var(--spacing-md)' }}>Cargando movimientos...</p>
+          </div>
+        ) : error ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: 'var(--spacing-xl)',
+            color: 'var(--danger)'
+          }}>
+            <Icon name="AlertTriangle" size={36} />
+            <p style={{ marginTop: 'var(--spacing-md)' }}>{error}</p>
+            <Button 
+              variant="primary" 
+              onClick={() => window.location.reload()}
+              style={{ marginTop: 'var(--spacing-md)' }}
+            >
+              Reintentar
+            </Button>
           </div>
         ) : (
           <>

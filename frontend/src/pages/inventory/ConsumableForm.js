@@ -6,6 +6,8 @@ import styled from 'styled-components';
 import FeatherIcon from 'feather-icons-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import { productService, categoryService } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
 
 const PageHeader = styled.div`
   display: flex;
@@ -188,7 +190,9 @@ const InfoMessage = styled.div`
 const ConsumableForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [consumable, setConsumable] = useState(null);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -211,48 +215,111 @@ const ConsumableForm = () => {
     isPriority: false
   };
   
-  // Simular carga de datos
+  // Cargar datos de categorías y consumibles desde la API
   useEffect(() => {
-    // En una implementación real, estos datos vendrían de la API
-    const mockCategories = [
-      { id: 1, name: 'Consumibles', subcategories: ['Cables', 'Pilas', 'Toner', 'Drum', 'Cargadores'] },
-      { id: 2, name: 'Componentes', subcategories: ['Memorias RAM', 'Discos Externos', 'Discos SSD/NVMe', 'Placas Sending', 'Placas de Video', 'Motherboards', 'Adaptadores USB Varios'] }
-    ];
-    
-    setCategories(mockCategories);
-    setSubcategories(mockCategories[0].subcategories);
-    
-    // Si hay un ID, cargar datos del consumible
-    if (id) {
-      // En una implementación real, estos datos vendrían de la API
-      setTimeout(() => {
-        // Datos simulados para un consumible
-        const mockConsumable = {
-          id: parseInt(id),
-          name: 'Tóner HP CF380X Negro',
-          category: 'Consumibles',
-          subcategory: 'Toner',
-          sku: 'TON-HP-CF380X',
-          currentStock: 5,
-          minimumStock: 8,
-          idealStock: 15,
-          location: 'Depósito Central',
-          unitPrice: '120',
-          supplier: 'HP Argentina',
-          compatibleWith: 'HP Color LaserJet Pro M476',
-          description: 'Tóner original HP de alto rendimiento. Rendimiento aproximado: 4,400 páginas.',
-          alertEnabled: true,
-          isPriority: true
-        };
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
         
-        setConsumable(mockConsumable);
-        setMaxQuantity(30); // Establecer un valor máximo razonable para el slider
+        // Cargar categorías
+        const categoriesResponse = await categoryService.getAll();
+        
+        // Filtrar solo categorías de consumibles y componentes
+        const relevantCategories = categoriesResponse.data.filter(cat => 
+          ['Consumibles', 'Componentes'].includes(cat.name));
+        
+        // Transformar las categorías al formato necesario para el formulario
+        const formattedCategories = relevantCategories.map(category => {
+          // Extraer subcategorías - en la API podrían estar como hijos o como un array
+          let subcategories = [];
+          if (category.children && Array.isArray(category.children)) {
+            subcategories = category.children.map(child => child.name);
+          } else if (category.subcategories && Array.isArray(category.subcategories)) {
+            subcategories = category.subcategories;
+          }
+          
+          return {
+            id: category.id,
+            name: category.name,
+            subcategories: subcategories
+          };
+        });
+        
+        setCategories(formattedCategories);
+        
+        // Establecer subcategorías iniciales (de la categoría 'Consumibles')
+        const consumablesCategory = formattedCategories.find(c => c.name === 'Consumibles');
+        if (consumablesCategory) {
+          setSubcategories(consumablesCategory.subcategories);
+        }
+        
+        // Si hay un ID, cargar datos del consumible
+        if (id) {
+          const response = await productService.getById(id);
+          const productData = response.data;
+          
+          // Calcular valores para el slider basado en los datos del producto
+          const maxStockValue = Math.max(
+            productData.currentStock || 0,
+            productData.minimumStock || 0,
+            productData.idealStock || 0,
+            30 // Valor mínimo predeterminado para el slider
+          ) * 1.5; // Agregar un 50% extra para el slider
+          
+          setMaxQuantity(Math.ceil(maxStockValue));
+          
+          // Extraer categoría y subcategoría del categoryPath
+          let category = '';
+          let subcategory = '';
+          
+          if (productData.categoryPath) {
+            const parts = productData.categoryPath.split('/');
+            category = parts[0];
+            subcategory = parts.slice(1).join('/');
+          }
+          
+          // Formatear los datos del consumible para el formulario
+          const formattedConsumable = {
+            id: productData.id,
+            name: productData.name,
+            category: category,
+            subcategory: subcategory,
+            sku: productData.sku || '',
+            currentStock: productData.currentStock || 0,
+            minimumStock: productData.minimumThreshold || 0,
+            idealStock: productData.idealStock || 0,
+            location: productData.location || 'Depósito Central',
+            unitPrice: productData.unitPrice || '',
+            supplier: productData.supplier || '',
+            compatibleWith: productData.compatibleWith || '',
+            description: productData.description || '',
+            alertEnabled: productData.alertEnabled !== false, // Default to true
+            isPriority: productData.isPriority || false
+          };
+          
+          setConsumable(formattedConsumable);
+          
+          // Actualizar subcategorías basadas en la categoría del consumible
+          if (category) {
+            const productCategory = formattedCategories.find(c => c.name === category);
+            if (productCategory) {
+              setSubcategories(productCategory.subcategories);
+            }
+          }
+        }
+        
         setLoading(false);
-      }, 800);
-    } else {
-      setLoading(false);
-    }
-  }, [id]);
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+        setError('Error al cargar los datos. Por favor, intente nuevamente.');
+        showNotification('Error al cargar datos del consumible', 'error');
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [id, showNotification]);
   
   // Manejar cambio de categoría
   const handleCategoryChange = (e, setFieldValue) => {
@@ -300,16 +367,50 @@ const ConsumableForm = () => {
   });
   
   // Enviar formulario
-  const handleSubmit = (values, { setSubmitting }) => {
-    console.log('Valores del formulario:', values);
-    
-    // En una implementación real, aquí enviaríamos los datos a la API
-    setTimeout(() => {
-      setSubmitting(false);
+  const handleSubmit = async (values, { setSubmitting }) => {
+    try {
+      // Preparar los datos para enviar a la API
+      const productData = {
+        name: values.name,
+        categoryPath: values.subcategory 
+          ? `${values.category}/${values.subcategory}` 
+          : values.category,
+        sku: values.sku,
+        currentStock: values.currentStock,
+        minimumThreshold: values.minimumStock,
+        idealStock: values.idealStock,
+        location: values.location,
+        unitPrice: values.unitPrice,
+        supplier: values.supplier,
+        compatibleWith: values.compatibleWith,
+        description: values.description,
+        alertEnabled: values.alertEnabled,
+        isPriority: values.isPriority,
+        // Marcar como consumible (no asset)
+        type: 'consumable',
+        // Los consumibles no requieren seguimiento de números de serie
+        trackSerial: false
+      };
       
-      // Redirigir a la página de detalle o listado
+      let response;
+      if (id) {
+        // Actualizar consumible existente
+        response = await productService.update(id, productData);
+        showNotification('Consumible actualizado correctamente', 'success');
+      } else {
+        // Crear nuevo consumible
+        response = await productService.create(productData);
+        showNotification('Consumible creado correctamente', 'success');
+      }
+      
+      // Redirigir a la página de listado
       navigate('/inventory/low-stock');
-    }, 1000);
+    } catch (error) {
+      console.error('Error al guardar consumible:', error);
+      showNotification('Error al guardar el consumible. Por favor, intente nuevamente.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
   
   // Calcular porcentajes para el slider
@@ -334,6 +435,32 @@ const ConsumableForm = () => {
             padding: 'var(--spacing-xl)' 
           }}>
             <FeatherIcon icon="loader" size={36} />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div>
+        <PageHeader>
+          <PageTitle>
+            <FeatherIcon icon="alert-triangle" size={24} color="var(--danger)" />
+            Error
+          </PageTitle>
+        </PageHeader>
+        
+        <Card>
+          <div style={{ padding: 'var(--spacing-lg)' }}>
+            <p>{error}</p>
+            <Button 
+              variant="primary" 
+              onClick={() => window.location.reload()}
+              style={{ marginTop: 'var(--spacing-md)' }}
+            >
+              Reintentar
+            </Button>
           </div>
         </Card>
       </div>
